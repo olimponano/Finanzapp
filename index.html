@@ -309,7 +309,7 @@ function App(){
   const hasTop=tab!=="cue";
   const tabs=[{id:"mov",label:"Movimientos",I:IcoMov},{id:"per",label:"Periódicos",I:IcoPer},{id:"ana",label:"Análisis",I:IcoAna},{id:"cue",label:"Cuentas",I:IcoCue}];
   function onSave(tipo,fecha){setShowSheet(false);if(tipo==="periodico")setTab("per");else{const d=new Date(fecha+"T12:00:00");setCurDate(new Date(d.getFullYear(),d.getMonth(),1));setTab("mov")}setTick(t=>t+1)}
-  return(<div style={{width:"100%",height:"100vh",background:T.bg,display:"flex",flexDirection:"column",position:"relative",overflow:"hidden"}}>
+  return(<div style={{width:"100%",maxWidth:520,height:"100vh",margin:"0 auto",background:T.bg,display:"flex",flexDirection:"column",position:"relative",overflow:"hidden"}}>
     {/* Header */}
     <div style={{padding:"14px 20px 0",background:T.bg,borderBottom:`0.5px solid ${T.border}`,flexShrink:0}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
