@@ -1,357 +1,1342 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FinanzApp</title>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:#0f0f0f;font-family:system-ui,sans-serif}
-::-webkit-scrollbar{width:0}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinanzApp</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+    .no-scroll::-webkit-scrollbar { display: none; }
+  </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const{useState,useEffect}=React;
-const MESES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
-const MESES_C=["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-const CAT_COLORES={Alimentacion:"#E24B4A",Vivienda:"#7F77DD",Transporte:"#378ADD",Salud:"#1D9E75",Entretenimiento:"#EF9F27",Sueldo:"#1D9E75",Freelance:"#378ADD",Renta:"#7F77DD",Servicios:"#BA7517",Ropa:"#E24B4A",Educacion:"#7F77DD",Tecnologia:"#378ADD",Otros:"#B4B2A9"};
-const CUENTAS=[{id:"billetera",name:"Billetera",type:"Efectivo",icon:"💵",bg:"#E1F5EE",fg:"#085041"},{id:"nacion",name:"Banco Nacion",type:"Debito",icon:"🏦",bg:"#E6F1FB",fg:"#0C447C"},{id:"mp",name:"Mercado Pago",type:"Billetera virtual",icon:"📱",bg:"#FAEEDA",fg:"#633806"},{id:"visa",name:"Visa Galicia",type:"Credito",icon:"💳",bg:"#FCEBEB",fg:"#791F1F"},{id:"fci",name:"FCI Renta Fija",type:"Inversion",icon:"📈",bg:"#EEEDFE",fg:"#3C3489"}];
-const CAT_GASTO=["Alimentacion","Vivienda","Transporte","Salud","Entretenimiento","Ropa","Educacion","Tecnologia","Servicios","Otros"];
-const CAT_ING=["Sueldo","Freelance","Renta","Dividendos","Otros ingresos"];
-const T={bg:"#0f0f0f",card:"#1a1a1a",card2:"#242424",border:"rgba(255,255,255,0.08)",border2:"rgba(255,255,255,0.14)",tx:"#f0f0f0",tx2:"#a0a0a0",tx3:"#555",green:"#1D9E75",greenL:"#0a3d2c",greenT:"#5DCAA5",red:"#E24B4A",redL:"#3d0f0f",blue:"#378ADD",blueL:"#0c2a4a",purple:"#7F77DD",purpleL:"#1e1a3d",amber:"#EF9F27",amberL:"#3d2a0a"};
-function fmt(n){return"$"+Number(n).toLocaleString("es-AR",{minimumFractionDigits:0,maximumFractionDigits:2})}
-function fmtFecha(iso){const[y,m,d]=iso.split("-");return`${d} ${MESES_C[parseInt(m)-1]} ${y}`}
-function isHoy(iso){const t=new Date(),[y,m,d]=iso.split("-");return t.getFullYear()==y&&t.getMonth()+1==m&&t.getDate()==d}
-function isAyer(iso){const t=new Date();t.setDate(t.getDate()-1);const[y,m,d]=iso.split("-");return t.getFullYear()==y&&t.getMonth()+1==m&&t.getDate()==d}
-function labelDia(iso){return isHoy(iso)?"Hoy — "+fmtFecha(iso):isAyer(iso)?"Ayer — "+fmtFecha(iso):fmtFecha(iso)}
-function ahora(){const n=new Date();return{fecha:`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`,hora:`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`}}
-function cuentaNombre(id){return CUENTAS.find(c=>c.id===id)?.name||id}
-function getMov(){try{return JSON.parse(localStorage.getItem("fa_mov")||"[]")}catch{return[]}}
-function saveMov(a){localStorage.setItem("fa_mov",JSON.stringify(a))}
-function getPer(){try{return JSON.parse(localStorage.getItem("fa_per")||"[]")}catch{return[]}}
-function savePer(a){localStorage.setItem("fa_per",JSON.stringify(a))}
+  <div id="root"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <script type="text/babel" data-presets="react">
+import { useState, useEffect } from "react";
 
-function Reloj(){
-  const[t,setT]=useState(()=>{const n=new Date();return`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`});
-  useEffect(()=>{const id=setInterval(()=>{const n=new Date();setT(`${String(n.getHours()).padStart(2,"0")}:${String(n.getMinutes()).padStart(2,"0")}`)},5000);return()=>clearInterval(id)},[]);
-  return <span style={{fontSize:14,fontWeight:600,color:T.tx}}>{t}</span>;
+const COLORS = {
+  bg: "#0f0f0f", surface: "#1a1a1a", surface2: "#222", border: "#2a2a2a",
+  green: "#1D9E75", blue: "#378ADD", red: "#c0392b", redSoft: "#e74c3c",
+  purple: "#7c5cbf", textPrimary: "#f0f0f0", textSecondary: "#888", textMuted: "#555",
+};
+
+const MONTHS = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+const MONTHS_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const DAYS_SHORT = ["Do","Lu","Ma","Mi","Ju","Vi","Sa"];
+
+const CATEGORIES = {
+  gasto: [
+    { id:"alimentacion",    label:"Alimentacion",   icon:"🍔" },
+    { id:"transporte",      label:"Transporte",      icon:"🚗" },
+    { id:"salud",           label:"Salud",           icon:"💊" },
+    { id:"hogar",           label:"Hogar",           icon:"🏠" },
+    { id:"entretenimiento", label:"Entretenimiento", icon:"🎮" },
+    { id:"ropa",            label:"Ropa",            icon:"👕" },
+    { id:"educacion",       label:"Educacion",       icon:"📚" },
+    { id:"otros",           label:"Otros",           icon:"📦" },
+    { id:"sin_categoria",   label:"Sin categoria",   icon:"" },
+  ],
+  ingreso: [
+    { id:"sueldo",      label:"Sueldo",      icon:"💼" },
+    { id:"freelance",   label:"Freelance",   icon:"💻" },
+    { id:"inversiones", label:"Inversiones", icon:"📈" },
+    { id:"regalo",      label:"Regalo",      icon:"🎁" },
+    { id:"otros",       label:"Otros",       icon:"📦" },
+    { id:"sin_categoria", label:"Sin categoria", icon:"" },
+  ],
+};
+
+const ACCOUNT_TYPES = { efectivo:"EFECTIVO", debito:"DEBITO", billetera_virtual:"BILLETERA VIRTUAL", credito:"CREDITO", inversion:"INVERSION" };
+const ACCOUNT_ICONS = { efectivo:"👛", debito:"🏦", billetera_virtual:"📱", credito:"💳", inversion:"📈" };
+
+const DEFAULT_ACCOUNTS = [
+  { id:1, name:"Billetera",     type:"efectivo",         balance:0 },
+  { id:2, name:"Banco Nacion",  type:"debito",           balance:0 },
+  { id:3, name:"Mercado Pago",  type:"billetera_virtual",balance:0 },
+  { id:4, name:"Visa Galicia",  type:"credito",          balance:0 },
+  { id:5, name:"FCI Renta Fija",type:"inversion",        balance:0 },
+];
+
+const fmt = (n) => "$" + Number(n).toLocaleString("es-AR", { minimumFractionDigits:0 });
+const pad = (n) => String(n).padStart(2,"0");
+
+function loadData(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) || "null") || fallback; } catch { return fallback; }
+}
+function saveData(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+
+// NAV ICONS
+function IconMovimientos({ active }) {
+  const c = active ? COLORS.green : COLORS.textSecondary;
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>;
+}
+function IconPeriodicos({ active }) {
+  const c = active ? COLORS.green : COLORS.textSecondary;
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>;
+}
+function IconAnalisis({ active }) {
+  const c = active ? COLORS.green : COLORS.textSecondary;
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>;
+}
+function IconCuentas({ active }) {
+  const c = active ? COLORS.green : COLORS.textSecondary;
+  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/><line x1="13" y1="15" x2="15" y2="15"/></svg>;
 }
 
-function SummaryBar({ing,gas}){
-  const bal=ing-gas;
-  return(<div style={{display:"flex",gap:6,padding:"8px 16px",borderBottom:`0.5px solid ${T.border}`}}>
-    {[{label:"Ingresos",val:ing,bg:T.greenL,color:T.greenT},{label:"Gastos",val:gas,bg:T.redL,color:"#f09595"},{label:"Balance",val:bal,bg:T.card2,color:bal>=0?T.greenT:"#f09595"}].map(p=>(
-      <div key={p.label} style={{flex:1,padding:"6px 4px",borderRadius:8,background:p.bg,textAlign:"center"}}>
-        <div style={{fontSize:10,color:T.tx3,marginBottom:1}}>{p.label}</div>
-        <div style={{fontSize:11,fontWeight:500,fontFamily:"monospace",color:p.color}}>{p.label==="Balance"&&bal>=0?"+":""}{fmt(p.val)}</div>
-      </div>
-    ))}
-  </div>);
-}
+// FULL DATE PICKER
+function FullDatePicker({ selected, onChange, onClose }) {
+  const init = selected ? new Date(selected) : new Date();
+  const [mode, setMode] = useState("day");
+  const [viewMonth, setViewMonth] = useState(init.getMonth());
+  const [viewYear, setViewYear] = useState(init.getFullYear());
 
-function EmptyState({icon,msg}){
-  return(<div style={{textAlign:"center",padding:"50px 20px",color:T.tx3}}>
-    <div style={{fontSize:38,marginBottom:10,opacity:.4}}>{icon}</div>
-    <p style={{fontSize:13,color:T.tx2}}>{msg}</p>
-    <p style={{fontSize:11,marginTop:4,color:T.tx3}}>Tocá + para agregar</p>
-  </div>);
-}
+  function prevMonth() { if (viewMonth===0){setViewMonth(11);setViewYear(y=>y-1);}else setViewMonth(m=>m-1); }
+  function nextMonth() { if (viewMonth===11){setViewMonth(0);setViewYear(y=>y+1);}else setViewMonth(m=>m+1); }
 
-function Calculadora({onResult,init="0"}){
-  const[display,setDisplay]=useState(()=>init&&init!=="0"?init:"");
-  const[expr,setExpr]=useState("");
-  const[waitingNext,setWaitingNext]=useState(false);
-  function press(val){
-    if(val==="AC"){setDisplay("");setExpr("");setWaitingNext(false);return}
-    if(val==="←"){if(waitingNext){setDisplay("");setWaitingNext(false);return}setDisplay(d=>d.length>1?d.slice(0,-1):"");return}
-    if(val==="="){try{const r=Math.round(Function('"use strict";return('+(expr+(display||"0"))+')')() *100)/100;setDisplay(String(r));setExpr("");setWaitingNext(false);onResult(r);}catch{setDisplay("Error")}return}
-    const ops=["+","-","×","÷"];
-    if(ops.includes(val)){setExpr(expr+(display||"0")+(val==="×"?"*":val==="÷"?"/":val));setDisplay("");setWaitingNext(true);return}
-    if(val==="."){if(!waitingNext&&display.includes("."))return;setDisplay(waitingNext||display===""?"0.":display+".");setWaitingNext(false);return}
-    if(waitingNext){setDisplay(val);setWaitingNext(false);}else setDisplay(d=>d===""||d==="0"?val:d+val);
-  }
-  const btns=[{v:"AC",s:2},{v:"←",s:2},{v:"÷",s:1},{v:"×",s:1},{v:"7",s:0},{v:"8",s:0},{v:"9",s:0},{v:"-",s:1},{v:"4",s:0},{v:"5",s:0},{v:"6",s:0},{v:"+",s:1},{v:"1",s:0},{v:"2",s:0},{v:"3",s:0},{v:"=",s:3},{v:".",s:0},{v:"0",s:0}];
-  return(<div style={{background:T.card2,borderRadius:10,padding:10,marginTop:6}}>
-    <div style={{textAlign:"right",padding:"2px 6px 8px",minHeight:28}}>
-      {expr&&<span style={{fontSize:11,color:T.tx3,marginRight:4}}>{expr}</span>}
-      <span style={{fontSize:20,fontFamily:"monospace",color:display?T.tx:T.tx3}}>{display||"0"}</span>
-    </div>
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
-      {btns.map((b,i)=><button key={i} onClick={()=>press(b.v)} style={{padding:"9px 0",border:"none",borderRadius:6,cursor:"pointer",fontSize:14,fontWeight:500,background:b.s===3?T.green:b.s===1||b.s===2?"#2e2e2e":T.card,color:b.s===3?"#fff":b.s===1?T.blue:T.tx}}>{b.v}</button>)}
-      <div/><div/>
-    </div>
-  </div>);
-}
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth+1, 0).getDate();
+  const cells = [];
+  for (let i=0;i<firstDay;i++) cells.push(null);
+  for (let d=1;d<=daysInMonth;d++) cells.push(d);
 
-function Calendario({fecha,onConfirm,onCancel}){
-  const[tmp,setTmp]=useState(new Date(fecha+"T12:00:00"));
-  function navMes(d){setTmp(prev=>new Date(prev.getFullYear(),prev.getMonth()+d,1))}
-  const y=tmp.getFullYear(),m=tmp.getMonth(),primerDia=(new Date(y,m,1).getDay()+6)%7,diasMes=new Date(y,m+1,0).getDate(),hoy=new Date();
-  return(<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.7)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:300}}>
-    <div style={{background:T.card,borderRadius:12,padding:16,width:280,border:`0.5px solid ${T.border2}`}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-        <button onClick={()=>navMes(-1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:T.tx2}}>‹</button>
-        <span style={{fontSize:14,fontWeight:500,color:T.tx}}>{MESES[m]} {y}</span>
-        <button onClick={()=>navMes(1)} style={{background:"none",border:"none",cursor:"pointer",fontSize:20,color:T.tx2}}>›</button>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2}}>
-        {["Lu","Ma","Mi","Ju","Vi","Sá","Do"].map(d=><div key={d} style={{fontSize:10,color:T.tx3,textAlign:"center",padding:"3px 0"}}>{d}</div>)}
-        {Array(primerDia).fill(null).map((_,i)=><div key={"e"+i}/>)}
-        {Array(diasMes).fill(null).map((_,i)=>{const d=i+1,isH=d===hoy.getDate()&&m===hoy.getMonth()&&y===hoy.getFullYear(),isS=d===tmp.getDate();return <div key={d} onClick={()=>setTmp(new Date(y,m,d))} style={{fontSize:12,textAlign:"center",padding:"6px 2px",borderRadius:6,cursor:"pointer",background:isS?T.green:"none",color:isS?"#fff":isH?T.greenT:T.tx,fontWeight:isH?600:400}}>{d}</div>;})}
-      </div>
-      <div style={{display:"flex",gap:8,marginTop:12}}>
-        <button onClick={onCancel} style={{flex:1,padding:8,border:`0.5px solid ${T.border2}`,borderRadius:8,background:"none",cursor:"pointer",fontSize:13,color:T.tx2}}>Cancelar</button>
-        <button onClick={()=>onConfirm(tmp)} style={{flex:1,padding:8,border:"none",borderRadius:8,background:T.green,cursor:"pointer",fontSize:13,fontWeight:500,color:"#fff"}}>Confirmar</button>
-      </div>
-    </div>
-  </div>);
-}
+  const selDate = selected ? new Date(selected) : null;
+  const isSelected = (d) => selDate && selDate.getDate()===d && selDate.getMonth()===viewMonth && selDate.getFullYear()===viewYear;
+  const isToday = (d) => { const t=new Date(); return t.getDate()===d && t.getMonth()===viewMonth && t.getFullYear()===viewYear; };
 
-function NuevoMovSheet({onClose,onSave}){
-  const[tipo,setTipo]=useState(null);
-  const[monto,setMonto]=useState("");
-  const[showCalc,setShowCalc]=useState(false);
-  const[calcInit,setCalcInit]=useState("0");
-  const[form,setForm]=useState({});
-  const n=ahora();
-  useEffect(()=>{if(tipo)setForm({fecha:n.fecha,hora:n.hora,cuenta:"billetera",categoria:tipo==="ingreso"?"Sueldo":"Alimentacion",descripcion:"",cuentaOrigen:"billetera",cuentaDestino:"nacion",frecuencia:"Mensual",debito:"automatico",esIngreso:"gasto"})},[tipo]);
-  function set(k,v){setForm(f=>({...f,[k]:v}))}
-  function guardar(){
-    const m=parseFloat(monto);if(!m||m<=0){alert("Ingresá un monto válido");return}
-    const id=Date.now().toString(),base={id,monto:m,fecha:form.fecha,hora:form.hora,descripcion:form.descripcion};
-    if(tipo==="periodico"){savePer([...getPer(),{...base,frecuencia:form.frecuencia,debito:form.debito,esIngreso:form.esIngreso==="ingreso",cuentaId:form.cuenta,cuenta:cuentaNombre(form.cuenta),categoria:form.categoria}]);}
-    else{const mov={...base,tipo};if(tipo==="transferencia"){mov.cuentaOrigenId=form.cuentaOrigen;mov.cuentaOrigen=cuentaNombre(form.cuentaOrigen);mov.cuentaDestinoId=form.cuentaDestino;mov.cuentaDestino=cuentaNombre(form.cuentaDestino);}else{mov.cuentaId=form.cuenta;mov.cuenta=cuentaNombre(form.cuenta);mov.categoria=form.categoria}saveMov([...getMov(),mov]);}
-    onSave(tipo,form.fecha);
-  }
-  function Campo({label,id,tipo:t="text",opciones=null}){
-    return(<div style={{display:"flex",flexDirection:"column",gap:3,marginBottom:10}}>
-      <label style={{fontSize:10,fontWeight:500,color:T.tx3,textTransform:"uppercase",letterSpacing:".05em"}}>{label}</label>
-      {opciones?<select value={form[id]||""} onChange={e=>set(id,e.target.value)} style={{padding:"8px 10px",border:`0.5px solid ${T.border2}`,borderRadius:8,fontSize:13,background:T.card2,color:T.tx,outline:"none"}}>{opciones.map(o=><option key={o.id||o} value={o.id||o}>{o.name||o}</option>)}</select>
-      :t==="textarea"?<textarea value={form[id]||""} onChange={e=>set(id,e.target.value)} style={{padding:"8px 10px",border:`0.5px solid ${T.border2}`,borderRadius:8,fontSize:13,resize:"none",height:52,fontFamily:"inherit",color:T.tx,background:T.card2,outline:"none"}} placeholder="Descripción opcional..."/>
-      :<input type={t} value={form[id]||""} onChange={e=>set(id,e.target.value)} style={{padding:"8px 10px",border:`0.5px solid ${T.border2}`,borderRadius:8,fontSize:13,color:T.tx,background:T.card2,outline:"none"}}/>}
-    </div>);
-  }
-  function Toggle({label,id,options}){
-    return(<div style={{display:"flex",flexDirection:"column",gap:3,marginBottom:10}}>
-      <label style={{fontSize:10,fontWeight:500,color:T.tx3,textTransform:"uppercase",letterSpacing:".05em"}}>{label}</label>
-      <div style={{display:"flex",gap:5}}>{options.map(o=><button key={o.val} onClick={()=>set(id,o.val)} style={{flex:1,padding:"7px 4px",border:`0.5px solid ${form[id]===o.val?T.purple:T.border2}`,borderRadius:8,background:form[id]===o.val?T.purpleL:"none",cursor:"pointer",fontSize:11,color:form[id]===o.val?T.purple:T.tx2,fontWeight:form[id]===o.val?500:400}}>{o.label}</button>)}</div>
-    </div>);
-  }
-  const tipos=[{id:"gasto",label:"Gasto",color:"#E24B4A",bg:T.redL,icon:"↑"},{id:"ingreso",label:"Ingreso",color:T.greenT,bg:T.greenL,icon:"↓"},{id:"transferencia",label:"Transferencia",color:T.blue,bg:T.blueL,icon:"⇄"},{id:"periodico",label:"Periódico",color:T.purple,bg:T.purpleL,icon:"↺"}];
-  const titulos={gasto:"Nuevo gasto",ingreso:"Nuevo ingreso",transferencia:"Nueva transferencia",periodico:"Nuevo periódico"};
-  return(<div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"flex-end",zIndex:200}}>
-    <div style={{width:"100%",background:T.card,borderRadius:"18px 18px 0 0",paddingBottom:24,maxHeight:"90%",overflowY:"auto"}}>
-      <div style={{width:36,height:4,background:T.border2,borderRadius:2,margin:"10px auto 0"}}/>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px 10px",borderBottom:`0.5px solid ${T.border}`}}>
-        <span style={{fontSize:15,fontWeight:600,color:T.tx}}>{tipo?titulos[tipo]:"Nuevo movimiento"}</span>
-        <button onClick={onClose} style={{width:28,height:28,border:"none",background:T.card2,borderRadius:"50%",cursor:"pointer",fontSize:16,color:T.tx2}}>✕</button>
-      </div>
-      {!tipo?(<>
-        <p style={{padding:"10px 16px 3px",fontSize:12,color:T.tx3}}>Seleccioná el tipo</p>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,padding:"0 16px 12px"}}>
-          {tipos.map(t=><button key={t.id} onClick={()=>setTipo(t.id)} style={{padding:"14px 6px",border:`0.5px solid ${T.border2}`,borderRadius:12,background:T.card2,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:6,fontSize:12,fontWeight:500,color:T.tx2}}>
-            <span style={{fontSize:26,background:t.bg,width:44,height:44,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",color:t.color}}>{t.icon}</span>{t.label}
-          </button>)}
-        </div>
-      </>):(<div style={{padding:"0 16px 8px"}}>
-        <div style={{margin:"10px 0 4px"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <div style={{flex:1,display:"flex",alignItems:"center",borderBottom:`2px solid ${T.green}`,paddingBottom:4,minWidth:0}}>
-              <span style={{fontSize:16,color:T.tx3,marginRight:3,flexShrink:0}}>$</span>
-              <input autoFocus type="number" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0,00" style={{width:"100%",minWidth:0,padding:"4px 0",border:"none",fontFamily:"monospace",fontSize:22,fontWeight:500,color:T.tx,background:"none",outline:"none",textAlign:"center"}}/>
-            </div>
-            <button onClick={()=>{setCalcInit(monto||"0");setShowCalc(v=>!v)}} style={{width:40,height:40,border:`0.5px solid ${showCalc?T.blue:T.border2}`,borderRadius:8,background:showCalc?T.blueL:"none",cursor:"pointer",fontSize:18,color:showCalc?T.blue:T.tx3,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>🧮</button>
+  const yearRange = [];
+  for (let y=viewYear-10;y<=viewYear+10;y++) yearRange.push(y);
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:400, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.7)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:16, padding:20, width:300, boxShadow:"0 8px 32px rgba(0,0,0,0.5)" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+          {mode==="day" ? <button onClick={prevMonth} style={{ background:"none", border:"none", color:COLORS.textPrimary, fontSize:20, cursor:"pointer", padding:"0 8px" }}>‹</button> : <div style={{width:36}}/>}
+          <div style={{ display:"flex", gap:6 }}>
+            <button onClick={() => setMode(mode==="month"?"day":"month")} style={{ background:mode==="month"?COLORS.green:COLORS.surface2, border:"none", borderRadius:6, padding:"4px 10px", color:"white", fontWeight:600, fontSize:14, cursor:"pointer" }}>{MONTHS_SHORT[viewMonth]}</button>
+            <button onClick={() => setMode(mode==="year"?"day":"year")} style={{ background:mode==="year"?COLORS.green:COLORS.surface2, border:"none", borderRadius:6, padding:"4px 10px", color:"white", fontWeight:600, fontSize:14, cursor:"pointer" }}>{viewYear}</button>
           </div>
-          {showCalc&&<Calculadora init={calcInit} onResult={r=>{setMonto(String(r));setShowCalc(false)}}/>}
+          {mode==="day" ? <button onClick={nextMonth} style={{ background:"none", border:"none", color:COLORS.textPrimary, fontSize:20, cursor:"pointer", padding:"0 8px" }}>›</button> : <div style={{width:36}}/>}
         </div>
-        <div style={{height:10}}/>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          <Campo label="Fecha" id="fecha" tipo="date"/>
-          <Campo label="Hora" id="hora" tipo="time"/>
-        </div>
-        {(tipo==="gasto"||tipo==="ingreso")&&(<><Campo label="Cuenta" id="cuenta" opciones={CUENTAS}/><Campo label="Categoría" id="categoria" opciones={tipo==="ingreso"?CAT_ING:CAT_GASTO}/><Campo label="Descripción" id="descripcion" tipo="textarea"/></>)}
-        {tipo==="transferencia"&&(<><Campo label="Cuenta que envía" id="cuentaOrigen" opciones={CUENTAS}/><Campo label="Cuenta que recibe" id="cuentaDestino" opciones={CUENTAS}/><Campo label="Descripción" id="descripcion" tipo="textarea"/></>)}
-        {tipo==="periodico"&&(<>
-          <Toggle label="Frecuencia" id="frecuencia" options={[{val:"Mensual",label:"Mensual"},{val:"Bimestral",label:"Bimestral"},{val:"Anual",label:"Anual"}]}/>
-          <Toggle label="Tipo de pago" id="debito" options={[{val:"automatico",label:"Débito auto"},{val:"vencimiento",label:"Con vencimiento"}]}/>
-          <Toggle label="Tipo" id="esIngreso" options={[{val:"gasto",label:"Gasto"},{val:"ingreso",label:"Ingreso"}]}/>
-          <Campo label="Cuenta" id="cuenta" opciones={CUENTAS}/><Campo label="Categoría" id="categoria" opciones={CAT_GASTO}/><Campo label="Descripción" id="descripcion" tipo="textarea"/>
-        </>)}
-        <button onClick={guardar} style={{width:"100%",padding:12,background:T.green,color:"#fff",border:"none",borderRadius:12,fontSize:14,fontWeight:600,cursor:"pointer",marginTop:4}}>Guardar movimiento</button>
-      </div>)}
-    </div>
-  </div>);
-}
 
-function TabMovimientos({curDate,busqueda,tick}){
-  const[movs,setMovs]=useState(getMov);
-  useEffect(()=>setMovs(getMov()),[curDate,busqueda,tick]);
-  const filtrados=movs.filter(m=>{if(busqueda){const q=busqueda.toLowerCase();return(m.descripcion||"").toLowerCase().includes(q)||(m.categoria||"").toLowerCase().includes(q)||(m.cuenta||"").toLowerCase().includes(q)||(m.cuentaOrigen||"").toLowerCase().includes(q)||(m.cuentaDestino||"").toLowerCase().includes(q)}const[y,mo]=m.fecha.split("-");return +y===curDate.getFullYear()&&+mo===curDate.getMonth()+1;}).sort((a,b)=>(b.fecha+b.hora)>(a.fecha+a.hora)?1:-1);
-  const tI=filtrados.filter(m=>m.tipo==="ingreso").reduce((s,m)=>s+ +m.monto,0);
-  const tG=filtrados.filter(m=>m.tipo==="gasto"||m.tipo==="periodico").reduce((s,m)=>s+ +m.monto,0);
-  function eliminar(id){if(!confirm("¿Eliminar este movimiento?"))return;const n=getMov().filter(m=>m.id!==id);saveMov(n);setMovs(n)}
-  const grupos={};filtrados.forEach(m=>{if(!grupos[m.fecha])grupos[m.fecha]=[];grupos[m.fecha].push(m)});
-  const dias=Object.keys(grupos).sort((a,b)=>b>a?1:-1);
-  const ts={gasto:{bg:T.redL,fg:"#E24B4A",ico:"↑"},ingreso:{bg:T.greenL,fg:T.greenT,ico:"↓"},transferencia:{bg:T.blueL,fg:T.blue,ico:"⇄"},periodico:{bg:T.purpleL,fg:T.purple,ico:"↺"}};
-  return(<div>
-    <SummaryBar ing={tI} gas={tG}/>
-    {busqueda&&<div style={{fontSize:10,color:T.tx3,padding:"7px 16px 4px",background:T.card2,borderBottom:`0.5px solid ${T.border}`}}>{filtrados.length} resultado(s) para: {busqueda}</div>}
-    {!filtrados.length?<EmptyState icon="🧾" msg={busqueda?"Sin resultados":"Sin movimientos este mes"}/>:dias.map(d=>{
-      let dt=0;grupos[d].forEach(m=>{if(m.tipo==="ingreso")dt+=+m.monto;else if(m.tipo==="gasto"||m.tipo==="periodico")dt-=+m.monto});
-      return(<div key={d}>
-        <div style={{fontSize:10,fontWeight:500,color:T.tx2,textTransform:"uppercase",letterSpacing:".05em",padding:"7px 16px 4px",background:T.card2,borderBottom:`0.5px solid ${T.border}`,display:"flex",justifyContent:"space-between"}}>
-          <span>{labelDia(d)}</span><span style={{color:dt>=0?T.greenT:"#f09595"}}>{(dt>=0?"+":"")+fmt(Math.abs(dt))}</span>
-        </div>
-        {grupos[d].map(m=>{const t=ts[m.tipo]||ts.gasto,ac=m.tipo==="ingreso"?T.greenT:m.tipo==="transferencia"?T.blue:"#f09595",sg=m.tipo==="ingreso"?"+":m.tipo==="transferencia"?"":"-",meta=m.tipo==="transferencia"?`${m.cuentaOrigen} → ${m.cuentaDestino} · ${m.hora}`:`${m.cuenta||""} · ${m.categoria||""} · ${m.hora}`,desc=m.descripcion||(m.tipo==="transferencia"?"Transferencia":m.categoria||m.tipo);
-          return(<div key={m.id} onClick={()=>eliminar(m.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px",borderBottom:`0.5px solid ${T.border}`,cursor:"pointer"}}>
-            <div style={{width:34,height:34,borderRadius:"50%",background:t.bg,color:t.fg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{t.ico}</div>
-            <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:T.tx,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{desc}</div><div style={{fontSize:10,color:T.tx3,marginTop:1}}>{meta}</div></div>
-            <div style={{fontSize:13,fontWeight:500,fontFamily:"monospace",whiteSpace:"nowrap",color:ac}}>{sg}{fmt(m.monto)}</div>
-          </div>);
-        })}
-      </div>);
-    })}
-  </div>);
-}
-
-function TabPeriodicos({busqueda,tick}){
-  const[pers,setPers]=useState(getPer);
-  useEffect(()=>setPers(getPer()),[tick]);
-  const filtrados=busqueda?pers.filter(p=>(p.descripcion||"").toLowerCase().includes(busqueda.toLowerCase())||(p.categoria||"").toLowerCase().includes(busqueda.toLowerCase())):pers;
-  const gT=filtrados.filter(p=>!p.esIngreso).reduce((s,p)=>s+ +p.monto,0),iT=filtrados.filter(p=>p.esIngreso).reduce((s,p)=>s+ +p.monto,0);
-  function eliminar(id){if(!confirm("¿Eliminar?"))return;const n=getPer().filter(p=>p.id!==id);savePer(n);setPers(n)}
-  const secciones=[{label:"Débito automático",items:filtrados.filter(p=>p.debito==="automatico"&&!p.esIngreso)},{label:"Con vencimiento",items:filtrados.filter(p=>p.debito!=="automatico"&&!p.esIngreso)},{label:"Ingresos recurrentes",items:filtrados.filter(p=>p.esIngreso)}];
-  return(<div>
-    <div style={{display:"flex",gap:6,padding:"8px 16px",borderBottom:`0.5px solid ${T.border}`}}>
-      <div style={{flex:1,padding:"6px 4px",borderRadius:8,background:T.redL,textAlign:"center"}}><div style={{fontSize:10,color:T.tx3,marginBottom:1}}>Gastos fijos</div><div style={{fontSize:11,fontWeight:500,fontFamily:"monospace",color:"#f09595"}}>{fmt(gT)}</div></div>
-      <div style={{flex:1,padding:"6px 4px",borderRadius:8,background:T.greenL,textAlign:"center"}}><div style={{fontSize:10,color:T.tx3,marginBottom:1}}>Ingresos fijos</div><div style={{fontSize:11,fontWeight:500,fontFamily:"monospace",color:T.greenT}}>{fmt(iT)}</div></div>
-    </div>
-    {!filtrados.length?<EmptyState icon="🔁" msg="Sin periódicos cargados"/>:secciones.map(sec=>!sec.items.length?null:(<div key={sec.label}>
-      <div style={{fontSize:10,fontWeight:500,color:T.tx3,textTransform:"uppercase",letterSpacing:".05em",padding:"8px 16px 4px",background:T.card2,borderBottom:`0.5px solid ${T.border}`}}>{sec.label}</div>
-      {sec.items.map(p=>(<div key={p.id} onClick={()=>eliminar(p.id)} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 16px",borderBottom:`0.5px solid ${T.border}`,cursor:"pointer"}}>
-        <div style={{width:34,height:34,borderRadius:"50%",background:p.esIngreso?T.greenL:T.purpleL,color:p.esIngreso?T.greenT:T.purple,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>↺</div>
-        <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:500,color:T.tx}}>{p.descripcion||p.categoria}</div><div style={{fontSize:10,color:T.tx3,marginTop:1}}>{p.frecuencia} · {p.cuenta}</div></div>
-        <div style={{textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:2}}>
-          <span style={{fontSize:9,padding:"2px 7px",borderRadius:20,fontWeight:500,background:p.debito==="automatico"?T.greenL:T.amberL,color:p.debito==="automatico"?T.greenT:T.amber}}>{p.debito==="automatico"?"Automático":"Manual"}</span>
-          <span style={{fontSize:12,fontFamily:"monospace",fontWeight:500,color:p.esIngreso?T.greenT:"#f09595"}}>{p.esIngreso?"+":"-"}{fmt(p.monto)}</span>
-        </div>
-      </div>))}
-    </div>))}
-  </div>);
-}
-
-function TabAnalisis({curDate,tick}){
-  const movs=getMov().filter(m=>{const[y,mo]=m.fecha.split("-");return +y===curDate.getFullYear()&&+mo===curDate.getMonth()+1});
-  const gas=movs.filter(m=>m.tipo==="gasto"||m.tipo==="periodico"),ct={};
-  gas.forEach(m=>{const c=m.categoria||"Otros";ct[c]=(ct[c]||0)+ +m.monto});
-  const tot=Object.values(ct).reduce((a,b)=>a+b,0),srt=Object.entries(ct).sort((a,b)=>b[1]-a[1]);
-  if(!srt.length)return <EmptyState icon="📊" msg="Sin gastos este mes"/>;
-  const r=70,cx=100,cy=100,stroke=40;let offset=0;
-  const slices=srt.map(([cat,amt])=>{const arc=amt/tot*2*Math.PI*r,s={cat,amt,arc,offset,color:CAT_COLORES[cat]||"#B4B2A9"};offset+=arc;return s});
-  return(<div>
-    <div style={{display:"flex",justifyContent:"center",padding:16}}>
-      <svg width={200} height={200} viewBox="0 0 200 200">
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={T.card2} strokeWidth={stroke}/>
-        {slices.map((s,i)=><circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={stroke} strokeDasharray={`${s.arc} ${2*Math.PI*r}`} strokeDashoffset={-s.offset+Math.PI*r*0.5} transform="rotate(-90, 100, 100)"/>)}
-        <text x={cx} y={cy-8} textAnchor="middle" fontSize={11} fill={T.tx3}>Total gastos</text>
-        <text x={cx} y={cy+10} textAnchor="middle" fontSize={13} fontWeight="500" fill={T.tx}>{fmt(tot)}</text>
-      </svg>
-    </div>
-    <div style={{fontSize:10,fontWeight:500,color:T.tx3,textTransform:"uppercase",letterSpacing:".04em",padding:"7px 16px",background:T.card2,borderTop:`0.5px solid ${T.border}`,borderBottom:`0.5px solid ${T.border}`,display:"flex"}}>
-      <span>Categoría</span><span style={{flex:1}}/><span style={{minWidth:70,textAlign:"right"}}>Monto</span><span style={{minWidth:28,textAlign:"right"}}>%</span>
-    </div>
-    {srt.map(([cat,amt])=>{const pct=Math.round(amt/tot*100),bw=Math.round(amt/srt[0][1]*100),col=CAT_COLORES[cat]||"#B4B2A9";return(<div key={cat} style={{display:"flex",alignItems:"center",gap:8,padding:"9px 16px",borderBottom:`0.5px solid ${T.border}`}}>
-      <div style={{width:9,height:9,borderRadius:"50%",background:col,flexShrink:0}}/><div style={{flex:1,fontSize:12,color:T.tx}}>{cat}</div>
-      <div style={{width:50,height:3,background:T.card2,borderRadius:2,overflow:"hidden"}}><div style={{width:bw+"%",height:"100%",background:col,borderRadius:2}}/></div>
-      <div style={{fontSize:12,fontFamily:"monospace",color:T.tx,minWidth:65,textAlign:"right"}}>{fmt(amt)}</div>
-      <div style={{fontSize:10,color:T.tx3,minWidth:28,textAlign:"right"}}>{pct}%</div>
-    </div>);})}
-  </div>);
-}
-
-function TabCuentas(){
-  const movs=getMov(),saldos={};CUENTAS.forEach(c=>{saldos[c.id]=0});
-  movs.forEach(m=>{if(m.tipo==="ingreso")saldos[m.cuentaId]=(saldos[m.cuentaId]||0)+ +m.monto;else if(m.tipo==="gasto"||m.tipo==="periodico")saldos[m.cuentaId]=(saldos[m.cuentaId]||0)- +m.monto;else if(m.tipo==="transferencia"){saldos[m.cuentaOrigenId]=(saldos[m.cuentaOrigenId]||0)- +m.monto;saldos[m.cuentaDestinoId]=(saldos[m.cuentaDestinoId]||0)+ +m.monto}});
-  const patrimonio=Object.values(saldos).reduce((a,b)=>a+b,0),grupos={};CUENTAS.forEach(c=>{if(!grupos[c.type])grupos[c.type]=[];grupos[c.type].push(c)});
-  return(<div style={{padding:"14px 16px"}}>
-    <div style={{background:"linear-gradient(135deg,#1D9E75,#085041)",borderRadius:12,padding:"14px 16px",marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-      <div><div style={{fontSize:11,color:"rgba(255,255,255,.7)",marginBottom:3}}>Patrimonio neto</div><div style={{fontSize:22,fontWeight:600,color:"#fff",fontFamily:"monospace"}}>{fmt(patrimonio)}</div></div>
-      <span style={{fontSize:28,opacity:.7}}>📈</span>
-    </div>
-    {Object.entries(grupos).map(([tipo,cuentas])=>(<div key={tipo}>
-      <div style={{fontSize:10,fontWeight:500,color:T.tx3,textTransform:"uppercase",letterSpacing:".05em",margin:"12px 0 6px"}}>{tipo}</div>
-      {cuentas.map(c=>{const bal=saldos[c.id]||0;return(<div key={c.id} style={{border:`0.5px solid ${T.border}`,borderRadius:8,padding:"10px 12px",marginBottom:7,display:"flex",alignItems:"center",gap:10,background:T.card}}>
-        <div style={{width:36,height:36,borderRadius:8,background:c.bg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{c.icon}</div>
-        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:T.tx}}>{c.name}</div><div style={{fontSize:10,color:T.tx3,marginTop:1}}>{c.type}</div></div>
-        <div style={{fontSize:14,fontWeight:600,fontFamily:"monospace",color:bal>=0?T.greenT:"#f09595"}}>{fmt(bal)}</div>
-      </div>);})}
-    </div>))}
-  </div>);
-}
-
-function IcoMov({c}){return(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>)}
-function IcoPer({c}){return(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>)}
-function IcoAna({c}){return(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>)}
-function IcoCue({c}){return(<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>)}
-
-function App(){
-  const[tab,setTab]=useState("mov");
-  const[curDate,setCurDate]=useState(new Date());
-  const[busqueda,setBusqueda]=useState("");
-  const[showSheet,setShowSheet]=useState(false);
-  const[showCal,setShowCal]=useState(false);
-  const[tick,setTick]=useState(0);
-  const hasTop=tab!=="cue";
-  const tabs=[{id:"mov",label:"Movimientos",I:IcoMov},{id:"per",label:"Periódicos",I:IcoPer},{id:"ana",label:"Análisis",I:IcoAna},{id:"cue",label:"Cuentas",I:IcoCue}];
-  function onSave(tipo,fecha){setShowSheet(false);if(tipo==="periodico")setTab("per");else{const d=new Date(fecha+"T12:00:00");setCurDate(new Date(d.getFullYear(),d.getMonth(),1));setTab("mov")}setTick(t=>t+1)}
-  return(<div style={{width:"100%",maxWidth:520,height:"100vh",margin:"0 auto",background:T.bg,display:"flex",flexDirection:"column",position:"relative",overflow:"hidden"}}>
-    {/* Header */}
-    <div style={{padding:"14px 20px 0",background:T.bg,borderBottom:`0.5px solid ${T.border}`,flexShrink:0}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-        <span style={{fontSize:20,fontWeight:600,color:T.green,letterSpacing:-.5}}>Finanz<span style={{color:T.tx}}>App</span></span>
-        <Reloj/>
+        {mode==="day" && (
+          <div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2, marginBottom:6 }}>
+              {DAYS_SHORT.map(d => <div key={d} style={{ textAlign:"center", fontSize:11, color:COLORS.textMuted }}>{d}</div>)}
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", gap:2 }}>
+              {cells.map((d,i) => (
+                <button key={i} onClick={() => { if(d){onChange(new Date(viewYear,viewMonth,d));onClose();} }}
+                  style={{ background:d&&isSelected(d)?COLORS.green:"none", border:d&&isToday(d)&&!isSelected(d)?"1px solid "+COLORS.green:"none", borderRadius:6, padding:"6px 0", color:d?(isSelected(d)?"white":COLORS.textPrimary):"transparent", fontSize:13, cursor:d?"pointer":"default", fontWeight:d&&isSelected(d)?700:400 }}>
+                  {d||""}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {mode==="month" && (
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:8 }}>
+            {MONTHS_SHORT.map((m,i) => (
+              <button key={i} onClick={() => {setViewMonth(i);setMode("day");}}
+                style={{ background:i===viewMonth?COLORS.green:COLORS.surface2, border:"none", borderRadius:8, padding:"10px 0", color:"white", fontSize:13, fontWeight:i===viewMonth?700:400, cursor:"pointer" }}>{m}</button>
+            ))}
+          </div>
+        )}
+        {mode==="year" && (
+          <div style={{ maxHeight:220, overflowY:"auto" }}>
+            {yearRange.map(y => (
+              <button key={y} onClick={() => {setViewYear(y);setMode("day");}}
+                style={{ width:"100%", background:y===viewYear?COLORS.green:"none", border:"none", borderRadius:8, padding:"10px 0", color:y===viewYear?"white":COLORS.textPrimary, fontSize:14, fontWeight:y===viewYear?700:400, cursor:"pointer", display:"block" }}>{y}</button>
+            ))}
+          </div>
+        )}
+        <button onClick={onClose} style={{ marginTop:16, width:"100%", background:COLORS.border, border:"none", borderRadius:8, padding:"10px 0", color:COLORS.textSecondary, cursor:"pointer", fontSize:13 }}>Cancelar</button>
       </div>
-      {hasTop&&(<>
-        <div style={{position:"relative",marginBottom:10}}>
-          <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:T.tx3}}>🔍</span>
-          <input value={busqueda} onChange={e=>setBusqueda(e.target.value)} placeholder="Buscar movimientos..." style={{width:"100%",padding:"8px 36px 8px 34px",border:`0.5px solid ${T.border2}`,borderRadius:10,fontSize:13,background:T.card,color:T.tx,outline:"none"}}/>
-          {busqueda&&<button onClick={()=>setBusqueda("")} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",cursor:"pointer",fontSize:14,color:T.tx3}}>✕</button>}
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-          <button onClick={()=>{const d=new Date(curDate);d.setMonth(d.getMonth()-1);setCurDate(d)}} style={{width:32,height:32,border:`0.5px solid ${T.border2}`,borderRadius:8,background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,color:T.tx2}}>‹</button>
-          <button onClick={()=>setShowCal(true)} style={{flex:1,padding:"6px 12px",border:`0.5px solid ${T.border2}`,borderRadius:8,background:T.card,fontSize:13,fontWeight:500,color:T.tx,cursor:"pointer",textAlign:"center"}}>{MESES[curDate.getMonth()]} {curDate.getFullYear()}</button>
-          <button onClick={()=>{const d=new Date(curDate);d.setMonth(d.getMonth()+1);setCurDate(d)}} style={{width:32,height:32,border:`0.5px solid ${T.border2}`,borderRadius:8,background:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,color:T.tx2}}>›</button>
-        </div>
-      </>)}
     </div>
-    {/* Contenido */}
-    <div style={{flex:1,overflowY:"auto",background:T.bg}}>
-      {tab==="mov"&&<TabMovimientos key={tick} curDate={curDate} busqueda={busqueda} tick={tick}/>}
-      {tab==="per"&&<TabPeriodicos key={"p"+tick} busqueda={busqueda} tick={tick}/>}
-      {tab==="ana"&&<TabAnalisis key={"a"+tick} curDate={curDate} tick={tick}/>}
-      {tab==="cue"&&<TabCuentas key={"c"+tick}/>}
-    </div>
-    {/* FAB */}
-    <button onClick={()=>setShowSheet(true)} style={{position:"absolute",bottom:70,right:24,width:54,height:54,borderRadius:"50%",background:"#378ADD",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,color:"#fff",boxShadow:"0 4px 16px rgba(55,138,221,.55)",zIndex:50}}>+</button>
-    {/* Bottom nav */}
-    <div style={{display:"flex",borderTop:`0.5px solid ${T.border}`,background:T.bg,flexShrink:0,paddingBottom:8,paddingTop:4}}>
-      {tabs.map(({id,label,I})=>{const active=tab===id,color=active?T.greenT:T.tx3;return(
-        <button key={id} onClick={()=>{setTab(id);setBusqueda("")}} style={{flex:1,padding:"6px 4px 4px",border:"none",background:"none",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,borderTop:active?`2px solid ${T.greenT}`:"2px solid transparent"}}>
-          <I c={color}/><span style={{fontSize:10,fontWeight:500,color}}>{label}</span>
-        </button>
-      );})}
-    </div>
-    {showSheet&&<NuevoMovSheet onClose={()=>setShowSheet(false)} onSave={onSave}/>}
-    {showCal&&<Calendario fecha={`${curDate.getFullYear()}-${String(curDate.getMonth()+1).padStart(2,"0")}-01`} onConfirm={d=>{setCurDate(new Date(d.getFullYear(),d.getMonth(),1));setShowCal(false)}} onCancel={()=>setShowCal(false)}/>}
-  </div>);
+  );
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
+// DATE NAVIGATOR
+function DateNavigator({ selectedDate, onDateChange }) {
+  const [showCal, setShowCal] = useState(false);
+  const d = selectedDate || new Date();
+  return (
+    <div style={{ display:"flex", gap:8, marginBottom:12 }}>
+      <button onClick={() => onDateChange(new Date(d.getFullYear(),d.getMonth()-1,1))} style={{ background:COLORS.surface, border:"1px solid "+COLORS.border, color:COLORS.textPrimary, width:36, height:36, borderRadius:8, cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>‹</button>
+      <button onClick={() => setShowCal(true)} style={{ flex:1, background:COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:8, color:COLORS.textPrimary, fontSize:14, fontWeight:600, cursor:"pointer" }}>
+        {MONTHS[d.getMonth()]} {d.getFullYear()}
+      </button>
+      <button onClick={() => onDateChange(new Date(d.getFullYear(),d.getMonth()+1,1))} style={{ background:COLORS.surface, border:"1px solid "+COLORS.border, color:COLORS.textPrimary, width:36, height:36, borderRadius:8, cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>›</button>
+      {showCal && <FullDatePicker selected={selectedDate} onChange={(date) => { onDateChange(date); setShowCal(false); }} onClose={() => setShowCal(false)} />}
+    </div>
+  );
+}
+
+function SearchBar({ value, onChange }) {
+  return (
+    <div style={{ position:"relative", marginBottom:12 }}>
+      <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)", fontSize:14 }}>🔍</span>
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder="Buscar movimientos..."
+        style={{ width:"100%", boxSizing:"border-box", background:COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:10, padding:"10px 12px 10px 36px", color:COLORS.textPrimary, fontSize:14, outline:"none" }} />
+    </div>
+  );
+}
+
+// CALCULATOR
+function Calculator({ initialValue, onResult, onClose }) {
+  const [display, setDisplay] = useState(initialValue !== "" ? String(initialValue) : "0");
+  const [prev, setPrev] = useState("");
+  const [op, setOp] = useState("");
+  const [waitNext, setWaitNext] = useState(false);
+
+  function pressDigit(d) {
+    if (waitNext) { setDisplay(d==="."?"0.":d); setWaitNext(false); }
+    else if (d==="." && display.includes(".")) return;
+    else setDisplay(display==="0" ? d : display+d);
+  }
+  function pressOp(o) { setPrev(display); setOp(o); setWaitNext(true); }
+  function pressEqual() {
+    if (!op||!prev) { onResult(parseFloat(display)); onClose(); return; }
+    const a=parseFloat(prev), b=parseFloat(display);
+    let res=a;
+    if(op==="+") res=a+b;
+    if(op==="-") res=a-b;
+    if(op==="*") res=a*b;
+    if(op==="/") res=b!==0?a/b:a;
+    onResult(Math.round(res*100)/100);
+    onClose();
+  }
+  function pressClear() { setDisplay("0"); setPrev(""); setOp(""); setWaitNext(false); }
+  function pressBack() { setDisplay(display.length>1?display.slice(0,-1):"0"); }
+
+  const btn = (bg, color) => ({ background:bg||COLORS.surface2, border:"1px solid "+COLORS.border, borderRadius:10, fontSize:18, fontWeight:600, color:color||COLORS.textPrimary, cursor:"pointer", padding:"14px 0", display:"flex", alignItems:"center", justifyContent:"center" });
+
+  return (
+    <div style={{ position:"absolute", top:"100%", right:0, zIndex:500, background:COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:14, padding:12, width:220, boxShadow:"0 8px 24px rgba(0,0,0,0.5)", marginTop:4 }}>
+      <div style={{ background:COLORS.bg, borderRadius:8, padding:"10px 14px", marginBottom:10, textAlign:"right" }}>
+        {op && <div style={{ fontSize:11, color:COLORS.textMuted, marginBottom:2 }}>{prev} {op}</div>}
+        <div style={{ fontSize:26, fontFamily:"monospace", fontWeight:700, color:COLORS.textPrimary, minHeight:32 }}>{waitNext?"":display}</div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr", gap:6 }}>
+        <button onClick={pressClear} style={{...btn(COLORS.red,"white"),gridColumn:"span 2",fontSize:14}}>AC</button>
+        <button onClick={pressBack}  style={btn(COLORS.surface2,COLORS.blue)}>⌫</button>
+        <button onClick={()=>pressOp("/")} style={btn(COLORS.surface2,COLORS.blue)}>÷</button>
+        <button onClick={()=>pressDigit("7")} style={btn()}>7</button>
+        <button onClick={()=>pressDigit("8")} style={btn()}>8</button>
+        <button onClick={()=>pressDigit("9")} style={btn()}>9</button>
+        <button onClick={()=>pressOp("*")} style={btn(COLORS.surface2,COLORS.blue)}>×</button>
+        <button onClick={()=>pressDigit("4")} style={btn()}>4</button>
+        <button onClick={()=>pressDigit("5")} style={btn()}>5</button>
+        <button onClick={()=>pressDigit("6")} style={btn()}>6</button>
+        <button onClick={()=>pressOp("-")} style={btn(COLORS.surface2,COLORS.blue)}>−</button>
+        <button onClick={()=>pressDigit("1")} style={btn()}>1</button>
+        <button onClick={()=>pressDigit("2")} style={btn()}>2</button>
+        <button onClick={()=>pressDigit("3")} style={btn()}>3</button>
+        <button onClick={()=>pressOp("+")} style={btn(COLORS.surface2,COLORS.blue)}>+</button>
+        <button onClick={()=>pressDigit("0")} style={{...btn(),gridColumn:"span 2"}}>0</button>
+        <button onClick={()=>pressDigit(".")} style={btn()}>.</button>
+        <button onClick={pressEqual} style={btn(COLORS.green,"white")}>=</button>
+      </div>
+    </div>
+  );
+}
+
+// CATEGORY PICKER
+function CategoryPicker({ tipo, selected, onSelect, onClose }) {
+  const cats = CATEGORIES[tipo] || [];
+  const [newCat, setNewCat] = useState("");
+  const [showNew, setShowNew] = useState(false);
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:350, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:"20px 20px 0 0", padding:20, paddingBottom:40, maxHeight:"70vh", overflowY:"auto" }}>
+        <div style={{ fontSize:13, color:COLORS.textMuted, fontWeight:600, marginBottom:14, letterSpacing:"0.06em" }}>CATEGORIA</div>
+        {cats.map(cat => (
+          <button key={cat.id} onClick={() => { onSelect(cat); onClose(); }}
+            style={{ width:"100%", background:selected&&selected.id===cat.id?COLORS.surface2:"none", border:selected&&selected.id===cat.id?"1px solid "+COLORS.green:"1px solid transparent", borderRadius:10, padding:"12px 14px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", marginBottom:6 }}>
+            <span style={{ fontSize:22 }}>{cat.icon}</span>
+            <span style={{ color:COLORS.textPrimary, fontSize:15 }}>{cat.label}</span>
+            {selected&&selected.id===cat.id && <span style={{ marginLeft:"auto", color:COLORS.green, fontSize:18 }}>✓</span>}
+          </button>
+        ))}
+        {showNew ? (
+          <div style={{ display:"flex", gap:8, marginTop:8 }}>
+            <input autoFocus value={newCat} onChange={e=>setNewCat(e.target.value)} placeholder="Nueva categoria..."
+              style={{ flex:1, background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:8, padding:"10px 12px", color:COLORS.textPrimary, fontSize:14, outline:"none" }} />
+            <button onClick={() => { if(newCat.trim()){onSelect({id:"custom_"+newCat,label:newCat.trim(),icon:"📦"});onClose();} }}
+              style={{ background:COLORS.green, border:"none", borderRadius:8, padding:"10px 16px", color:"white", fontWeight:600, cursor:"pointer" }}>OK</button>
+          </div>
+        ) : (
+          <button onClick={() => setShowNew(true)} style={{ width:"100%", background:"none", border:"1px dashed "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textMuted, fontSize:14, cursor:"pointer", marginTop:4 }}>+ Agregar categoria</button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ACCOUNT PICKER
+function AccountPicker({ accounts, selected, onSelect, onClose }) {
+  const grouped = {};
+  accounts.forEach(a => { if(!grouped[a.type]) grouped[a.type]=[]; grouped[a.type].push(a); });
+  const typeOrder = ["efectivo","debito","billetera_virtual","credito","inversion"];
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:350, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:"20px 20px 0 0", padding:20, paddingBottom:40, maxHeight:"70vh", overflowY:"auto" }}>
+        <div style={{ fontSize:13, color:COLORS.textMuted, fontWeight:600, marginBottom:14, letterSpacing:"0.06em" }}>CUENTA</div>
+        {typeOrder.map(type => {
+          const accs = grouped[type];
+          if (!accs) return null;
+          return (
+            <div key={type}>
+              <div style={{ fontSize:11, fontWeight:700, color:COLORS.textMuted, letterSpacing:"0.08em", marginBottom:6, paddingLeft:4 }}>{ACCOUNT_TYPES[type]}</div>
+              {accs.map(acc => (
+                <button key={acc.id} onClick={() => { onSelect(acc); onClose(); }}
+                  style={{ width:"100%", background:selected&&selected.id===acc.id?COLORS.surface2:"none", border:selected&&selected.id===acc.id?"1px solid "+COLORS.green:"1px solid transparent", borderRadius:10, padding:"12px 14px", display:"flex", alignItems:"center", gap:12, cursor:"pointer", marginBottom:6 }}>
+                  <span style={{ fontSize:22 }}>{ACCOUNT_ICONS[acc.type]}</span>
+                  <span style={{ color:COLORS.textPrimary, fontSize:15 }}>{acc.name}</span>
+                  {selected&&selected.id===acc.id && <span style={{ marginLeft:"auto", color:COLORS.green, fontSize:18 }}>✓</span>}
+                </button>
+              ))}
+            </div>
+          );
+        })}
+        <button onClick={onClose} style={{ width:"100%", background:"none", border:"1px dashed "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textMuted, fontSize:14, cursor:"pointer", marginTop:4 }}>+ Agregar cuenta</button>
+      </div>
+    </div>
+  );
+}
+
+// FORM MOVIMIENTO
+function FormMovimiento({ tipo, existing, onClose, onSave, onDelete, accounts }) {
+  const now = new Date();
+  const initDate = existing ? new Date(existing.date) : now;
+  const initTimeParts = existing && existing.time ? existing.time.split(":") : [pad(now.getHours()), pad(now.getMinutes())];
+  const [amount, setAmount] = useState(existing ? String(existing.amount) : "");
+  const [date, setDate] = useState(initDate);
+  const [hh, setHh] = useState(initTimeParts[0]||"00");
+  const [mm, setMm] = useState(initTimeParts[1]||"00");
+  const [category, setCategory] = useState(existing ? { id:"existing", label:existing.category, icon:existing.categoryIcon||"📦" } : null);
+  const [account, setAccount] = useState(existing ? accounts.find(a=>a.id===existing.accountId)||null : null);
+  const [accountDest, setAccountDest] = useState(existing ? accounts.find(a=>a.id===existing.accountDestId)||null : null);
+  const [description, setDescription] = useState(existing ? (existing.description||"") : "");
+  const [files, setFiles] = useState([]);
+  const [showCal, setShowCal] = useState(false);
+  const [showCatPicker, setShowCatPicker] = useState(false);
+  const [showAccPicker, setShowAccPicker] = useState(false);
+  const [showAccDestPicker, setShowAccDestPicker] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+
+  const isTransferencia = tipo==="transferencia";
+  const isGasto = tipo==="gasto";
+  const accentColor = isTransferencia ? COLORS.blue : isGasto ? COLORS.red : COLORS.green;
+  const icon = isTransferencia ? "⇄" : isGasto ? "↑" : "↓";
+  const title = existing
+    ? (isTransferencia ? "Editar transferencia" : isGasto ? "Editar gasto" : "Editar ingreso")
+    : (isTransferencia ? "Nueva transferencia" : isGasto ? "Nuevo gasto" : "Nuevo ingreso");
+  const dateLabel = date ? date.getDate()+" de "+MONTHS_SHORT[date.getMonth()]+" "+date.getFullYear() : "Elegir fecha";
+
+  const fieldStyle = { width:"100%", boxSizing:"border-box", background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textPrimary, fontSize:14, outline:"none" };
+  const labelStyle = { fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em", marginBottom:6, display:"block" };
+
+  function handleSave() {
+    const mov = {
+      id: existing ? existing.id : Date.now(), tipo,
+      amount: parseFloat(amount)||0,
+      date: date ? date.toISOString() : now.toISOString(),
+      time: hh+":"+mm,
+      accountId: account ? account.id : null,
+      account: account ? account.name : "Sin cuenta",
+      accountDestId: isTransferencia ? (accountDest ? accountDest.id : null) : null,
+      accountDest: isTransferencia ? (accountDest ? accountDest.name : "Sin cuenta") : null,
+      category: isTransferencia ? "Transferencia" : (category ? category.label : "Sin categoria"),
+      categoryIcon: isTransferencia ? "" : (category ? category.icon : "📦"),
+      description,
+      isEdit: !!existing,
+      prevAccountId: existing ? existing.accountId : null,
+      prevAccountDestId: existing ? existing.accountDestId : null,
+      prevAmount: existing ? existing.amount : 0,
+      prevTipo: existing ? existing.tipo : tipo,
+    };
+    onSave(mov);
+    onClose();
+  }
+
+  function handleConfirmAction() {
+    if (confirmAction==="delete") { onDelete(existing.id); onClose(); }
+    if (confirmAction==="save") handleSave();
+    setConfirmAction(null);
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:"20px 20px 0 0", maxHeight:"92vh", display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"20px 20px 16px" }}>
+          <div style={{ width:40, height:40, borderRadius:"50%", background:accentColor, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, color:"white", fontWeight:700, flexShrink:0 }}>{icon}</div>
+          <span style={{ color:COLORS.textPrimary, fontSize:18, fontWeight:700 }}>{title}</span>
+          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:COLORS.textSecondary, fontSize:22, cursor:"pointer" }}>×</button>
+        </div>
+
+        <div style={{ overflowY:"auto", padding:"0 20px 20px", flex:1 }}>
+
+          <div style={{ marginBottom:14 }}>
+            <label style={labelStyle}>MONTO</label>
+            <div style={{ display:"flex", gap:8, alignItems:"center", position:"relative" }}>
+              <input value={amount} onChange={e=>setAmount(e.target.value)} placeholder="$0" type="number"
+                style={{ ...fieldStyle, fontSize:16, fontFamily:"monospace", fontWeight:700, color:accentColor, flex:1 }} />
+              <button onClick={() => setShowCalc(v=>!v)}
+                style={{ background:COLORS.surface2, border:"1px solid "+COLORS.border, borderRadius:10, width:44, height:44, flexShrink:0, cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center" }}>🧮</button>
+              {showCalc && <Calculator initialValue={amount} onResult={(v)=>setAmount(String(v))} onClose={()=>setShowCalc(false)} />}
+            </div>
+          </div>
+
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
+            <div>
+              <label style={labelStyle}>FECHA</label>
+              <button onClick={() => setShowCal(true)} style={{ ...fieldStyle, textAlign:"left", cursor:"pointer", fontSize:13 }}>{dateLabel}</button>
+            </div>
+            <div>
+              <label style={labelStyle}>HORARIO</label>
+              <div style={{ display:"flex", alignItems:"center", gap:4 }}>
+                <input value={hh} onChange={e => { const v=e.target.value.replace(/\D/g,""); if(v.length<=2) setHh(v); }} onBlur={() => setHh(pad(Math.min(23,parseInt(hh)||0)))} maxLength={2} placeholder="HH"
+                  style={{ ...fieldStyle, flex:1, textAlign:"center", fontSize:15, fontFamily:"monospace", padding:"12px 6px" }} />
+                <span style={{ color:COLORS.textSecondary, fontSize:18, fontWeight:700, flexShrink:0 }}>:</span>
+                <input value={mm} onChange={e => { const v=e.target.value.replace(/\D/g,""); if(v.length<=2) setMm(v); }} onBlur={() => setMm(pad(Math.min(59,parseInt(mm)||0)))} maxLength={2} placeholder="MM"
+                  style={{ ...fieldStyle, flex:1, textAlign:"center", fontSize:15, fontFamily:"monospace", padding:"12px 6px" }} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ marginBottom:14 }}>
+            <label style={labelStyle}>{isTransferencia ? "DE" : "CUENTA"}</label>
+            <button onClick={() => setShowAccPicker(true)} style={{ ...fieldStyle, textAlign:"left", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+              {account ? <span>{ACCOUNT_ICONS[account.type]} {account.name}</span> : <span style={{ color:COLORS.textMuted }}>Seleccionar cuenta</span>}
+              <span style={{ marginLeft:"auto", color:COLORS.textMuted, fontSize:12 }}>›</span>
+            </button>
+          </div>
+
+          {isTransferencia ? (
+            <div style={{ marginBottom:14 }}>
+              <label style={labelStyle}>A</label>
+              <button onClick={() => setShowAccDestPicker(true)} style={{ ...fieldStyle, textAlign:"left", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+                {accountDest ? <span>{ACCOUNT_ICONS[accountDest.type]} {accountDest.name}</span> : <span style={{ color:COLORS.textMuted }}>Seleccionar cuenta destino</span>}
+                <span style={{ marginLeft:"auto", color:COLORS.textMuted, fontSize:12 }}>›</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ marginBottom:14 }}>
+              <label style={labelStyle}>CATEGORIA</label>
+              <button onClick={() => setShowCatPicker(true)} style={{ ...fieldStyle, textAlign:"left", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+                {category ? <span>{category.icon} {category.label}</span> : <span style={{ color:COLORS.textMuted }}>Seleccionar categoria</span>}
+                <span style={{ marginLeft:"auto", color:COLORS.textMuted, fontSize:12 }}>›</span>
+              </button>
+            </div>
+          )}
+
+          <div style={{ marginBottom:14 }}>
+            <label style={labelStyle}>DESCRIPCION</label>
+            <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Descripcion opcional..." rows={3}
+              style={{ ...fieldStyle, resize:"none", fontFamily:"inherit" }} />
+          </div>
+
+          <div style={{ marginBottom:14 }}>
+            <label style={labelStyle}>ARCHIVOS / FOTOS</label>
+            <button onClick={() => { const i=document.createElement("input");i.type="file";i.multiple=true;i.accept="image/*,.pdf";i.onchange=e=>{const arr=Array.from(e.target.files).map(f=>({name:f.name,type:f.type}));setFiles(p=>[...p,...arr]);};i.click(); }}
+              style={{ width:"100%", background:"none", border:"1px dashed "+COLORS.border, borderRadius:10, padding:"14px", color:COLORS.textMuted, fontSize:14, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+              <span style={{ fontSize:20 }}>📎</span> Adjuntar archivo o foto
+            </button>
+            {files.length>0 && (
+              <div style={{ marginTop:8, display:"flex", flexWrap:"wrap", gap:8 }}>
+                {files.map((f,i) => (
+                  <div key={i} style={{ background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:8, padding:"6px 10px", fontSize:12, color:COLORS.textSecondary, display:"flex", alignItems:"center", gap:6 }}>
+                    {f.type.startsWith("image/")?"🖼":"📄"} {f.name}
+                    <button onClick={()=>setFiles(p=>p.filter((_,j)=>j!==i))} style={{ background:"none", border:"none", color:COLORS.textMuted, cursor:"pointer", fontSize:14 }}>×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {existing && (
+            <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+              <button onClick={() => setConfirmAction("save")} style={{ flex:1, background:COLORS.blue, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:15, fontWeight:700, cursor:"pointer" }}>Editar</button>
+              <button onClick={() => setConfirmAction("delete")} style={{ flex:1, background:COLORS.red, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:15, fontWeight:700, cursor:"pointer" }}>Eliminar</button>
+            </div>
+          )}
+
+          {!existing && (
+            <button onClick={handleSave} style={{ width:"100%", background:accentColor, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:16, fontWeight:700, cursor:"pointer" }}>
+              Guardar {isTransferencia ? "transferencia" : isGasto ? "gasto" : "ingreso"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showCal && <FullDatePicker selected={date} onChange={(d)=>{setDate(d);setShowCal(false);}} onClose={()=>setShowCal(false)} />}
+      {showCatPicker && <CategoryPicker tipo={tipo} selected={category} onSelect={setCategory} onClose={()=>setShowCatPicker(false)} />}
+      {showAccPicker && <AccountPicker accounts={accounts} selected={account} onSelect={setAccount} onClose={()=>setShowAccPicker(false)} />}
+      {showAccDestPicker && <AccountPicker accounts={accounts} selected={accountDest} onSelect={setAccountDest} onClose={()=>setShowAccDestPicker(false)} />}
+      {confirmAction && (
+        <ConfirmDialog
+          message={confirmAction==="delete" ? "Eliminar este movimiento?" : "Guardar los cambios?"}
+          onConfirm={handleConfirmAction}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// TYPE MODAL
+const MOVE_TYPES = [
+  { id:"gasto",         label:"Gasto",        color:COLORS.red,    icon:"↑" },
+  { id:"ingreso",       label:"Ingreso",       color:COLORS.green,  icon:"↓" },
+  { id:"transferencia", label:"Transferencia", color:COLORS.blue,   icon:"⇄" },
+  { id:"periodico",     label:"Periodico",     color:COLORS.purple, icon:"↺" },
+];
+function ModalTipoMovimiento({ onClose, onSelect }) {
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:"20px 20px 0 0", padding:24, paddingBottom:40 }}>
+        <div style={{ marginBottom:20 }}>
+          <div style={{ fontSize:18, fontWeight:700, color:COLORS.textPrimary }}>Nuevo movimiento</div>
+          <div style={{ fontSize:13, color:COLORS.textMuted, marginTop:4 }}>Que tipo de movimiento queres registrar?</div>
+        </div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          {MOVE_TYPES.map(t => (
+            <button key={t.id} onClick={() => onSelect(t.id)}
+              style={{ background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:14, padding:"24px 12px", display:"flex", flexDirection:"column", alignItems:"center", gap:10, cursor:"pointer" }}>
+              <div style={{ width:52, height:52, borderRadius:"50%", background:t.color, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, color:"white", fontWeight:700 }}>{t.icon}</div>
+              <span style={{ color:COLORS.textPrimary, fontSize:14, fontWeight:500 }}>{t.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// CONFIRM DIALOG
+function ConfirmDialog({ message, onConfirm, onCancel }) {
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:600, display:"flex", alignItems:"center", justifyContent:"center" }}>
+      <div onClick={onCancel} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.7)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:16, padding:24, width:280, textAlign:"center" }}>
+        <div style={{ color:COLORS.textPrimary, fontSize:15, marginBottom:20 }}>{message}</div>
+        <div style={{ display:"flex", gap:10 }}>
+          <button onClick={onCancel} style={{ flex:1, background:COLORS.border, border:"none", borderRadius:10, padding:"12px 0", color:COLORS.textSecondary, fontSize:14, cursor:"pointer" }}>Cancelar</button>
+          <button onClick={onConfirm} style={{ flex:1, background:COLORS.red, border:"none", borderRadius:10, padding:"12px 0", color:"white", fontSize:14, fontWeight:700, cursor:"pointer" }}>Confirmar</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// MOVEMENT ITEM
+function MovimientoItem({ mov, onTap }) {
+  const isGasto = mov.tipo==="gasto";
+  const isTransferencia = mov.tipo==="transferencia";
+  const bgColor = isTransferencia ? COLORS.blue : isGasto ? COLORS.red : COLORS.green;
+  const amountColor = isTransferencia ? COLORS.blue : isGasto ? COLORS.redSoft : COLORS.green;
+  return (
+    <div onClick={() => onTap(mov)} style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"14px 0", borderBottom:"1px solid "+COLORS.border, cursor:"pointer" }}>
+      <div style={{ width:42, height:42, borderRadius:"50%", background:bgColor, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0, marginTop:2 }}>
+        {isTransferencia ? "⇄" : (mov.categoryIcon||"📦")}
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        {isTransferencia ? (
+          <div style={{ display:"flex", alignItems:"baseline", gap:4, marginBottom:3, flexWrap:"wrap" }}>
+            <span style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:14 }}>De</span>
+            <span style={{ color:COLORS.textSecondary, fontSize:13 }}>{mov.account||"Sin cuenta"}</span>
+            <span style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:14 }}>A</span>
+            <span style={{ color:COLORS.textSecondary, fontSize:13 }}>{mov.accountDest||"Sin cuenta"}</span>
+          </div>
+        ) : (
+          <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:3 }}>
+            <span style={{ color:COLORS.textPrimary, fontWeight:600, fontSize:14 }}>{mov.category}</span>
+            <span style={{ color:COLORS.textSecondary, fontSize:12 }}>{mov.account||"Sin cuenta"}</span>
+          </div>
+        )}
+        <div style={{ color:COLORS.textSecondary, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+          {mov.time||""}
+          {mov.description ? " · "+mov.description : ""}
+        </div>
+      </div>
+      <div style={{ color:amountColor, fontFamily:"monospace", fontWeight:700, fontSize:15, flexShrink:0, marginTop:2 }}>
+        {isTransferencia ? "" : (isGasto ? "-" : "+")}{fmt(mov.amount)}
+      </div>
+    </div>
+  );
+}
+
+// TABS
+function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onEdit, accounts }) {
+  const [search, setSearch] = useState("");
+  const [detailMov, setDetailMov] = useState(null);
+  const filtered = movimientos.filter(m => {
+    const q = search.toLowerCase();
+    if (q) return (m.description||"").toLowerCase().includes(q)||(m.category||"").toLowerCase().includes(q)||(m.account||"").toLowerCase().includes(q);
+    const d = new Date(m.date);
+    return d.getMonth()===selectedDate.getMonth() && d.getFullYear()===selectedDate.getFullYear();
+  });
+  const ingresos = filtered.filter(m=>m.tipo==="ingreso").reduce((s,m)=>s+m.amount,0);
+  const gastos   = filtered.filter(m=>m.tipo==="gasto").reduce((s,m)=>s+m.amount,0);
+  const balance  = ingresos-gastos;
+  const byDay = {};
+  filtered.forEach(m => { const d=new Date(m.date); const k=d.toDateString(); if(!byDay[k]) byDay[k]={date:d,items:[]}; byDay[k].items.push(m); });
+  const dayKeys = Object.keys(byDay).sort((a,b)=>new Date(b)-new Date(a));
+  return (
+    <div style={{ padding:"0 16px" }}>
+      <SearchBar value={search} onChange={setSearch} />
+      <DateNavigator selectedDate={selectedDate} onDateChange={onDateChange} />
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
+        <div style={{ background:COLORS.green, borderRadius:10, padding:"10px 12px" }}>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>Ingresos</div>
+          <div style={{ fontSize:16, fontWeight:700, fontFamily:"monospace", color:"white" }}>{fmt(ingresos)}</div>
+        </div>
+        <div style={{ background:COLORS.red, borderRadius:10, padding:"10px 12px" }}>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>Gastos</div>
+          <div style={{ fontSize:16, fontWeight:700, fontFamily:"monospace", color:"white" }}>{fmt(gastos)}</div>
+        </div>
+        <div style={{ background:"#2a2a2a", borderRadius:10, padding:"10px 12px" }}>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>Balance</div>
+          <div style={{ fontSize:16, fontWeight:700, fontFamily:"monospace", color:balance<0?COLORS.redSoft:"white" }}>{fmt(balance)}</div>
+        </div>
+      </div>
+      {filtered.length===0 ? (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"60px 20px", textAlign:"center" }}>
+          <div style={{ fontSize:48, marginBottom:12 }}>💸</div>
+          <div style={{ color:COLORS.textSecondary, fontSize:16, fontWeight:500, marginBottom:6 }}>Sin movimientos</div>
+          <div style={{ color:COLORS.textMuted, fontSize:13 }}>Toca + para agregar</div>
+        </div>
+      ) : dayKeys.map(key => {
+        const group = byDay[key];
+        const d = group.date;
+        const isToday = new Date().toDateString()===key;
+        const dayLabel = isToday?"HOY":d.getDate()+" "+MONTHS_SHORT[d.getMonth()].toUpperCase()+" "+d.getFullYear();
+        const dayTotal = group.items.reduce((s,m)=>m.tipo==="gasto"?s-m.amount:s+m.amount,0);
+        return (
+          <div key={key} style={{ marginBottom:8 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0 4px", borderBottom:"1px solid "+COLORS.border }}>
+              <span style={{ fontSize:12, fontWeight:700, color:COLORS.textMuted, letterSpacing:"0.05em" }}>{dayLabel}</span>
+              <span style={{ fontSize:12, fontWeight:700, color:dayTotal<0?COLORS.redSoft:COLORS.green }}>{dayTotal<0?"-":"+"}{fmt(Math.abs(dayTotal))}</span>
+            </div>
+            {group.items.map(m => <MovimientoItem key={m.id} mov={m} onTap={setDetailMov} />)}
+          </div>
+        );
+      })}
+      {detailMov && (
+        <FormMovimiento
+          tipo={detailMov.tipo}
+          existing={detailMov}
+          onClose={() => setDetailMov(null)}
+          onSave={(mov) => { onEdit(mov); setDetailMov(null); }}
+          onDelete={(id) => { onDelete(id); setDetailMov(null); }}
+          accounts={accounts}
+        />
+      )}
+    </div>
+  );
+}
+
+function TabPeriodicos({ selectedDate, onDateChange }) {
+  const [search, setSearch] = useState("");
+  return (
+    <div style={{ padding:"0 16px" }}>
+      <SearchBar value={search} onChange={setSearch} />
+      <DateNavigator selectedDate={selectedDate} onDateChange={onDateChange} />
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, marginBottom:16 }}>
+        <div style={{ background:COLORS.red, borderRadius:10, padding:"10px 12px" }}>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>Gastos fijos</div>
+          <div style={{ fontSize:16, fontWeight:700, fontFamily:"monospace", color:"white" }}>$0</div>
+        </div>
+        <div style={{ background:COLORS.green, borderRadius:10, padding:"10px 12px" }}>
+          <div style={{ fontSize:11, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>Ingresos fijos</div>
+          <div style={{ fontSize:16, fontWeight:700, fontFamily:"monospace", color:"white" }}>$0</div>
+        </div>
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"60px 20px", textAlign:"center" }}>
+        <div style={{ fontSize:48, marginBottom:12 }}>🔄</div>
+        <div style={{ color:COLORS.textSecondary, fontSize:16, fontWeight:500, marginBottom:6 }}>Sin periodicos cargados</div>
+        <div style={{ color:COLORS.textMuted, fontSize:13 }}>Toca + para agregar</div>
+      </div>
+    </div>
+  );
+}
+
+function PieChart({ slices, size }) {
+  const r = size / 2;
+  const cx = r;
+  const cy = r;
+  const innerR = r * 0.55;
+  let cumAngle = -Math.PI / 2;
+  const paths = slices.map((s) => {
+    const angle = s.pct * 2 * Math.PI;
+    const x1 = cx + r * Math.cos(cumAngle);
+    const y1 = cy + r * Math.sin(cumAngle);
+    cumAngle += angle;
+    const x2 = cx + r * Math.cos(cumAngle);
+    const y2 = cy + r * Math.sin(cumAngle);
+    const ix1 = cx + innerR * Math.cos(cumAngle - angle);
+    const iy1 = cy + innerR * Math.sin(cumAngle - angle);
+    const ix2 = cx + innerR * Math.cos(cumAngle);
+    const iy2 = cy + innerR * Math.sin(cumAngle);
+    const large = angle > Math.PI ? 1 : 0;
+    const d = [
+      "M", x1, y1,
+      "A", r, r, 0, large, 1, x2, y2,
+      "L", ix2, iy2,
+      "A", innerR, innerR, 0, large, 0, ix1, iy1,
+      "Z"
+    ].join(" ");
+    return { d, color: s.color };
+  });
+  return (
+    <svg width={size} height={size} viewBox={"0 0 "+size+" "+size}>
+      {paths.map((p, i) => <path key={i} d={p.d} fill={p.color} />)}
+    </svg>
+  );
+}
+
+function fmtShort(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1).replace(/\.0$/,"") + "M";
+  if (n >= 1000) return (n/1000).toFixed(1).replace(/\.0$/,"") + "k";
+  return String(Math.round(n));
+}
+
+function VerticalBarChart({ cats, colors }) {
+  const max = cats.reduce((m, c) => c.total > m ? c.total : m, 0) || 1;
+  const barW = 36;
+  const gap = 12;
+  const LABEL_H = 38;
+  const BAR_AREA_H = 200 - LABEL_H - 1;
+  const totalW = cats.length * (barW + gap);
+
+  return (
+    <div style={{ width:"100%", height:"100%", display:"flex", flexDirection:"column" }}>
+      {/* Bars area with hidden scrollbar */}
+      <div style={{ flex:1, overflowX:"auto", overflowY:"hidden", scrollbarWidth:"none", msOverflowStyle:"none" }}>
+        <style>{".no-scroll::-webkit-scrollbar{display:none}"}</style>
+        <div className="no-scroll" style={{ width:totalW, height:"100%", display:"flex", flexDirection:"column" }}>
+          <div style={{ flex:1, display:"flex", alignItems:"flex-end", gap:gap }}>
+            {cats.map((cat, i) => {
+              const barH = Math.max(4, Math.round((cat.total / max) * (BAR_AREA_H - 16)));
+              const color = colors[i % colors.length];
+              return (
+                <div key={cat.label} style={{ flexShrink:0, width:barW, display:"flex", flexDirection:"column", alignItems:"center" }}>
+                  <span style={{ fontSize:10, color:COLORS.textSecondary, fontFamily:"monospace", whiteSpace:"nowrap", marginBottom:3 }}>{fmtShort(cat.total)}</span>
+                  <div style={{ width:barW, height:barH, background:color, borderRadius:"4px 4px 0 0" }} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      {/* Baseline full width */}
+      <div style={{ height:1, background:COLORS.border, flexShrink:0, width:"100%" }} />
+      {/* Labels row with hidden scrollbar, synced width */}
+      <div style={{ height:LABEL_H, overflowX:"auto", overflowY:"hidden", scrollbarWidth:"none", msOverflowStyle:"none", flexShrink:0 }}>
+        <div style={{ width:totalW, display:"flex", gap:gap, paddingTop:6 }}>
+          {cats.map((cat, i) => (
+            <div key={cat.label} style={{ flexShrink:0, width:barW, fontSize:10, color:COLORS.textSecondary, textAlign:"center", lineHeight:1.2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+              {cat.icon} {cat.label}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const CAT_COLORS = ["#e74c3c","#e67e22","#f1c40f","#2ecc71","#1abc9c","#3498db","#9b59b6","#e91e63","#00bcd4","#ff5722"];
+
+const PERIODOS = [
+  { id:"semana",    label:"Semanal" },
+  { id:"mensual",   label:"Mensual" },
+  { id:"trimestre", label:"Trimestral" },
+  { id:"semestre",  label:"Semestral" },
+  { id:"anual",     label:"Anual" },
+];
+
+function PeriodoPicker({ periodo, onChange, onClose }) {
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:350, display:"flex", flexDirection:"column", justifyContent:"flex-end", alignItems:"center" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:"20px 20px 0 0", padding:20, paddingBottom:40, width:"100%", maxWidth:500, boxSizing:"border-box" }}>
+        <div style={{ fontSize:13, color:COLORS.textMuted, fontWeight:600, marginBottom:14, letterSpacing:"0.06em" }}>PERIODO</div>
+        {PERIODOS.map(p => (
+          <button key={p.id} onClick={() => { onChange(p.id); onClose(); }}
+            style={{ width:"100%", boxSizing:"border-box", background: periodo===p.id ? COLORS.surface2 : "none", border: periodo===p.id ? "1px solid "+COLORS.green : "1px solid transparent", borderRadius:10, padding:"12px 14px", display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", marginBottom:6 }}>
+            <span style={{ color:COLORS.textPrimary, fontSize:15 }}>{p.label}</span>
+            {periodo===p.id && <span style={{ color:COLORS.green, fontSize:18 }}>✓</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function getDateRange(selectedDate, periodo) {
+  const d = new Date(selectedDate);
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  const day = d.getDate();
+  if (periodo==="semana") {
+    const dow = d.getDay();
+    const start = new Date(y, m, day - dow);
+    const end = new Date(y, m, day - dow + 6);
+    return { start, end, label: start.getDate()+"/"+(start.getMonth()+1)+" - "+end.getDate()+"/"+(end.getMonth()+1)+"/"+end.getFullYear() };
+  }
+  if (periodo==="mensual") {
+    return { start: new Date(y,m,1), end: new Date(y,m+1,0), label: ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][m]+" "+y };
+  }
+  if (periodo==="trimestre") {
+    const q = Math.floor(m/3);
+    const sm = q*3;
+    return { start: new Date(y,sm,1), end: new Date(y,sm+3,0), label: "T"+(q+1)+" "+y };
+  }
+  if (periodo==="semestre") {
+    const sm = m < 6 ? 0 : 6;
+    return { start: new Date(y,sm,1), end: new Date(y,sm+6,0), label: (sm===0?"1er":"2do")+" semestre "+y };
+  }
+  if (periodo==="anual") {
+    return { start: new Date(y,0,1), end: new Date(y,11,31), label: String(y) };
+  }
+  return { start: new Date(y,m,1), end: new Date(y,m+1,0), label: "" };
+}
+
+function TabAnalisis({ selectedDate, onDateChange, movimientos }) {
+  const [vista, setVista] = useState("gastos");
+  const [chartType, setChartType] = useState("pie");
+  const [periodo, setPeriodo] = useState("mensual");
+  const [showPeriodo, setShowPeriodo] = useState(false);
+
+  const range = getDateRange(selectedDate, periodo);
+
+  const filtered = movimientos.filter(m => {
+    const d = new Date(m.date);
+    return d >= range.start && d <= range.end;
+  });
+
+  const gastos   = filtered.filter(m => m.tipo==="gasto");
+  const ingresos = filtered.filter(m => m.tipo==="ingreso");
+  const totalGastos   = gastos.reduce((s,m) => s+m.amount, 0);
+  const totalIngresos = ingresos.reduce((s,m) => s+m.amount, 0);
+  const totalTodo = totalGastos + totalIngresos;
+
+  function agruparPorCategoria(movs) {
+    const map = {};
+    movs.forEach(m => {
+      const key = m.category || "Sin categoria";
+      const icon = key==="Sin categoria" ? "" : (m.categoryIcon||"📦");
+      if (!map[key]) map[key] = { label:key, icon, total:0 };
+      map[key].total += m.amount;
+    });
+    return Object.values(map).sort((a,b) => b.total - a.total);
+  }
+
+  const catGastos   = agruparPorCategoria(gastos);
+  const catIngresos = agruparPorCategoria(ingresos);
+
+  function buildSlices(cats, total) {
+    return cats.map((c, i) => ({ pct: total > 0 ? c.total/total : 0, color: CAT_COLORS[i % CAT_COLORS.length] }));
+  }
+
+  const btnVista = (id, label, color) => ({
+    style: { flex:1, padding:"10px 0", borderRadius:10, border:"none", cursor:"pointer", fontSize:13, fontWeight:600, background: vista===id ? color : COLORS.surface, color: vista===id ? "white" : COLORS.textSecondary },
+    onClick: () => setVista(id),
+    children: label,
+  });
+
+  const showEmpty = (vista==="gastos" && catGastos.length===0) || (vista==="ingresos" && catIngresos.length===0) || (vista==="todos" && totalTodo===0);
+  const activeCats  = vista==="gastos" ? catGastos : catIngresos;
+  const activeTotal = vista==="gastos" ? totalGastos : totalIngresos;
+  const activeColor = vista==="gastos" ? COLORS.redSoft : COLORS.green;
+
+  const IconPie = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>
+    </svg>
+  );
+  const IconBar = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="4"/><line x1="12" y1="20" x2="12" y2="8"/><line x1="6" y1="20" x2="6" y2="14"/>
+      <line x1="2" y1="20" x2="22" y2="20"/>
+    </svg>
+  );
+  const IconClock = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  );
+
+  return (
+    <div style={{ padding:"0 16px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+        <button onClick={() => {
+          const r = getDateRange(selectedDate, periodo);
+          const prev = new Date(r.start);
+          prev.setDate(prev.getDate() - 1);
+          onDateChange(prev);
+        }} style={{ background:COLORS.surface, border:"1px solid "+COLORS.border, color:COLORS.textPrimary, width:36, height:36, borderRadius:8, cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>‹</button>
+        <div style={{ flex:1, background:COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", height:36, color:COLORS.textPrimary, fontSize:13, fontWeight:600 }}>{range.label}</div>
+        <button onClick={() => {
+          const r = getDateRange(selectedDate, periodo);
+          const next = new Date(r.end);
+          next.setDate(next.getDate() + 1);
+          onDateChange(next);
+        }} style={{ background:COLORS.surface, border:"1px solid "+COLORS.border, color:COLORS.textPrimary, width:36, height:36, borderRadius:8, cursor:"pointer", fontSize:18, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>›</button>
+      </div>
+
+      <div style={{ display:"flex", gap:8, marginBottom:16 }}>
+        <button {...btnVista("gastos",   "Gastos",   COLORS.red)} />
+        <button {...btnVista("ingresos", "Ingresos", COLORS.green)} />
+        <button {...btnVista("todos",    "Todos",    COLORS.blue)} />
+      </div>
+
+      {showEmpty ? (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"60px 20px", textAlign:"center" }}>
+          <div style={{ fontSize:48, marginBottom:12 }}>📊</div>
+          <div style={{ color:COLORS.textSecondary, fontSize:16, fontWeight:500, marginBottom:6 }}>Sin datos para analizar</div>
+          <div style={{ color:COLORS.textMuted, fontSize:13 }}>Agrega movimientos para ver estadisticas</div>
+        </div>
+      ) : vista==="todos" ? (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", marginBottom:24 }}>
+          <div style={{ position:"relative", width:200, height:200 }}>
+            <PieChart size={200} slices={totalTodo>0 ? [
+              { pct: totalGastos/totalTodo, color: COLORS.redSoft },
+              { pct: totalIngresos/totalTodo, color: COLORS.green },
+            ] : [{ pct:1, color:COLORS.border }]} />
+            <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", pointerEvents:"none" }}>
+              <div style={{ fontSize:11, color:COLORS.textMuted }}>Balance</div>
+              <div style={{ fontSize:16, fontFamily:"monospace", fontWeight:700, color: totalIngresos-totalGastos<0?COLORS.redSoft:COLORS.green }}>{fmt(totalIngresos-totalGastos)}</div>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:20, marginTop:12 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ width:12, height:12, borderRadius:"50%", background:COLORS.redSoft }} />
+              <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Gastos {totalTodo>0?Math.round(totalGastos/totalTodo*100):0}%</span>
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ width:12, height:12, borderRadius:"50%", background:COLORS.green }} />
+              <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Ingresos {totalTodo>0?Math.round(totalIngresos/totalTodo*100):0}%</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div>
+          {/* Fixed height chart area with buttons inside at bottom corners */}
+          <div style={{ height:200, position:"relative", marginBottom:16 }}>
+            {chartType==="pie" ? (
+              <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                <div style={{ position:"relative", width:200, height:200 }}>
+                  <PieChart size={200} slices={buildSlices(activeCats, activeTotal)} />
+                  <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", pointerEvents:"none" }}>
+                    <div style={{ fontSize:11, color:COLORS.textMuted }}>Total</div>
+                    <div style={{ fontSize:16, fontFamily:"monospace", fontWeight:700, color:activeColor }}>{fmt(activeTotal)}</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ position:"absolute", left:46, right:46, top:0, bottom:0 }}>
+                <VerticalBarChart cats={activeCats} colors={CAT_COLORS} />
+              </div>
+            )}
+            <button onClick={() => setShowPeriodo(true)}
+              style={{ position:"absolute", left:0, bottom:0, background:COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:COLORS.textSecondary, zIndex:2 }}>
+              <IconClock />
+            </button>
+            <button onClick={() => setChartType(chartType==="pie"?"bar":"pie")}
+              style={{ position:"absolute", right:0, bottom:0, background:COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:10, width:38, height:38, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", color:COLORS.textSecondary, zIndex:2 }}>
+              {chartType==="pie" ? <IconBar /> : <IconPie />}
+            </button>
+          </div>
+
+          {/* Category table always visible */}
+          <div style={{ background:COLORS.surface, borderRadius:12, overflow:"hidden", marginBottom:16 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr auto auto", padding:"8px 14px", borderBottom:"1px solid "+COLORS.border }}>
+              <span style={{ fontSize:11, fontWeight:700, color:COLORS.textMuted, letterSpacing:"0.06em" }}>CATEGORIA</span>
+              <span style={{ fontSize:11, fontWeight:700, color:COLORS.textMuted, letterSpacing:"0.06em", textAlign:"right", minWidth:70 }}>MONTO</span>
+              <span style={{ fontSize:11, fontWeight:700, color:COLORS.textMuted, letterSpacing:"0.06em", textAlign:"right", minWidth:36 }}>%</span>
+            </div>
+            {activeCats.map((cat, i) => {
+              const pct = activeTotal>0 ? Math.round(cat.total/activeTotal*100) : 0;
+              const color = CAT_COLORS[i % CAT_COLORS.length];
+              return (
+                <div key={cat.label} style={{ display:"grid", gridTemplateColumns:"1fr auto auto", padding:"12px 14px", borderBottom: i<activeCats.length-1?"1px solid "+COLORS.border:"none", alignItems:"center" }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ width:10, height:10, borderRadius:"50%", background:color, flexShrink:0 }} />
+                    <span style={{ color:COLORS.textPrimary, fontSize:14 }}>{cat.icon} {cat.label}</span>
+                  </div>
+                  <span style={{ fontFamily:"monospace", fontSize:14, color:COLORS.textPrimary, textAlign:"right", minWidth:70 }}>{fmt(cat.total)}</span>
+                  <span style={{ fontSize:13, color:COLORS.textMuted, textAlign:"right", minWidth:36 }}>{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {showPeriodo && <PeriodoPicker periodo={periodo} onChange={setPeriodo} onClose={() => setShowPeriodo(false)} />}
+    </div>
+  );
+}
+
+// FORM CUENTA (agregar o editar)
+function FormCuenta({ existing, onClose, onSave }) {
+  const [name, setName] = useState(existing ? existing.name : "");
+  const [type, setType] = useState(existing ? existing.type : "efectivo");
+  const [confirm, setConfirm] = useState(false);
+  const typeOrder = ["efectivo","debito","billetera_virtual","credito","inversion"];
+  const fieldStyle = { width:"100%", boxSizing:"border-box", background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textPrimary, fontSize:14, outline:"none" };
+  const labelStyle = { fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em", marginBottom:6, display:"block" };
+
+  function handleSave() {
+    if (existing) { setConfirm(true); return; }
+    onSave({ id: Date.now(), name:name.trim(), type, balance:0 });
+    onClose();
+  }
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex", flexDirection:"column", justifyContent:"flex-end" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:"20px 20px 0 0", padding:20, paddingBottom:40 }}>
+        <div style={{ display:"flex", alignItems:"center", marginBottom:20 }}>
+          <span style={{ color:COLORS.textPrimary, fontSize:18, fontWeight:700 }}>{existing ? "Editar cuenta" : "Nueva cuenta"}</span>
+          <button onClick={onClose} style={{ marginLeft:"auto", background:"none", border:"none", color:COLORS.textSecondary, fontSize:22, cursor:"pointer" }}>×</button>
+        </div>
+        <div style={{ marginBottom:14 }}>
+          <label style={labelStyle}>NOMBRE</label>
+          <input value={name} onChange={e=>setName(e.target.value)} placeholder="Nombre de la cuenta" style={fieldStyle} />
+        </div>
+        <div style={{ marginBottom:20 }}>
+          <label style={labelStyle}>TIPO</label>
+          <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            {typeOrder.map(t => (
+              <button key={t} onClick={() => setType(t)}
+                style={{ background: type===t ? COLORS.surface2 : "none", border: type===t ? "1px solid "+COLORS.green : "1px solid transparent", borderRadius:10, padding:"11px 14px", display:"flex", alignItems:"center", gap:12, cursor:"pointer" }}>
+                <span style={{ fontSize:20 }}>{ACCOUNT_ICONS[t]}</span>
+                <span style={{ color:COLORS.textPrimary, fontSize:14 }}>{ACCOUNT_TYPES[t]}</span>
+                {type===t && <span style={{ marginLeft:"auto", color:COLORS.green }}>✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={handleSave} disabled={!name.trim()}
+          style={{ width:"100%", background: name.trim() ? COLORS.green : COLORS.border, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:16, fontWeight:700, cursor: name.trim() ? "pointer" : "default" }}>
+          {existing ? "Guardar cambios" : "Agregar cuenta"}
+        </button>
+      </div>
+      {confirm && (
+        <ConfirmDialog
+          message="Guardar los cambios en esta cuenta?"
+          onConfirm={() => { onSave({ ...existing, name:name.trim(), type }); onClose(); }}
+          onCancel={() => setConfirm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ACCOUNT DETAIL VIEW
+function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
+  const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const allAccMovs = movimientos.filter(m => m.accountId===acc.id || m.accountDestId===acc.id)
+    .sort((a,b) => new Date(b.date)-new Date(a.date));
+
+  const filtered = allAccMovs.filter(m => {
+    const d = new Date(m.date);
+    return d.getMonth()===selectedDate.getMonth() && d.getFullYear()===selectedDate.getFullYear();
+  });
+
+  const ingresos = filtered.filter(m => m.tipo==="ingreso").reduce((s,m) => s+m.amount, 0);
+  const gastos   = filtered.filter(m => m.tipo==="gasto").reduce((s,m) => s+m.amount, 0);
+  const balance  = ingresos - gastos;
+
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:250, background:COLORS.bg, display:"flex", flexDirection:"column" }}>
+      {/* Header */}
+      <div style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap:12, borderBottom:"1px solid "+COLORS.border }}>
+        <button onClick={onClose} style={{ background:"none", border:"none", color:COLORS.textSecondary, fontSize:22, cursor:"pointer", padding:0 }}>‹</button>
+        <div style={{ width:36, height:36, borderRadius:8, background:COLORS.border, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>{ACCOUNT_ICONS[acc.type]}</div>
+        <div style={{ flex:1 }}>
+          <div style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:16 }}>{acc.name}</div>
+          <div style={{ color:COLORS.textSecondary, fontSize:12 }}>{ACCOUNT_TYPES[acc.type]}</div>
+        </div>
+        <button onClick={onEdit} style={{ background:COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:8, padding:"6px 14px", color:COLORS.textPrimary, fontSize:13, cursor:"pointer" }}>Editar</button>
+      </div>
+
+      {/* Balance */}
+      <div style={{ padding:"16px 20px 12px", borderBottom:"1px solid "+COLORS.border }}>
+        <div style={{ fontSize:12, color:COLORS.textMuted, marginBottom:4 }}>Saldo actual</div>
+        <div style={{ fontSize:32, fontWeight:700, fontFamily:"monospace", color: acc.balance<0 ? COLORS.redSoft : COLORS.green }}>{fmt(acc.balance)}</div>
+      </div>
+
+      {/* Month navigator + summary */}
+      <div style={{ padding:"12px 16px", borderBottom:"1px solid "+COLORS.border }}>
+        <DateNavigator selectedDate={selectedDate} onDateChange={setSelectedDate} />
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8 }}>
+          <div style={{ background:COLORS.green, borderRadius:10, padding:"10px 12px" }}>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>Ingresos</div>
+            <div style={{ fontSize:15, fontWeight:700, fontFamily:"monospace", color:"white" }}>{fmt(ingresos)}</div>
+          </div>
+          <div style={{ background:COLORS.red, borderRadius:10, padding:"10px 12px" }}>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>Gastos</div>
+            <div style={{ fontSize:15, fontWeight:700, fontFamily:"monospace", color:"white" }}>{fmt(gastos)}</div>
+          </div>
+          <div style={{ background:"#2a2a2a", borderRadius:10, padding:"10px 12px" }}>
+            <div style={{ fontSize:11, color:"rgba(255,255,255,0.75)", marginBottom:2 }}>Balance</div>
+            <div style={{ fontSize:15, fontWeight:700, fontFamily:"monospace", color: balance<0?COLORS.redSoft:"white" }}>{fmt(balance)}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Movements */}
+      <div style={{ flex:1, overflowY:"auto", padding:"0 16px" }}>
+        {filtered.length===0 ? (
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"60px 20px", textAlign:"center" }}>
+            <div style={{ fontSize:48, marginBottom:12 }}>💸</div>
+            <div style={{ color:COLORS.textSecondary, fontSize:16, fontWeight:500 }}>Sin movimientos</div>
+          </div>
+        ) : (
+          filtered.map(m => {
+            const d = new Date(m.date);
+            const isGasto = m.tipo==="gasto";
+            const isTransferencia = m.tipo==="transferencia";
+            const bgColor = isTransferencia ? COLORS.blue : isGasto ? COLORS.red : COLORS.green;
+            const amountColor = isTransferencia ? COLORS.blue : isGasto ? COLORS.redSoft : COLORS.green;
+            const isIncoming = isTransferencia && m.accountDestId===acc.id;
+            return (
+              <div key={m.id} style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"14px 0", borderBottom:"1px solid "+COLORS.border }}>
+                <div style={{ width:42, height:42, borderRadius:"50%", background:bgColor, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0, marginTop:2 }}>
+                  {isTransferencia ? "⇄" : (m.categoryIcon||"📦")}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  {isTransferencia ? (
+                    <div style={{ display:"flex", alignItems:"baseline", gap:4, marginBottom:3, flexWrap:"wrap" }}>
+                      <span style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:14 }}>De</span>
+                      <span style={{ color:COLORS.textSecondary, fontSize:13 }}>{m.account||"Sin cuenta"}</span>
+                      <span style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:14 }}>A</span>
+                      <span style={{ color:COLORS.textSecondary, fontSize:13 }}>{m.accountDest||"Sin cuenta"}</span>
+                    </div>
+                  ) : (
+                    <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:3 }}>
+                      <span style={{ color:COLORS.textPrimary, fontWeight:600, fontSize:14 }}>{m.category}</span>
+                      <span style={{ color:COLORS.textSecondary, fontSize:12 }}>{m.account||"Sin cuenta"}</span>
+                    </div>
+                  )}
+                  <div style={{ color:COLORS.textSecondary, fontSize:12 }}>
+                    {d.getDate()}/{d.getMonth()+1}/{d.getFullYear()} {m.time||""}
+                    {m.description ? " · "+m.description : ""}
+                  </div>
+                </div>
+                <div style={{ color:amountColor, fontFamily:"monospace", fontWeight:700, fontSize:15, flexShrink:0, marginTop:2 }}>
+                  {isTransferencia ? (isIncoming ? "+" : "-") : (isGasto ? "-" : "+")}{fmt(m.amount)}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TabCuentas({ accounts, onAddAccount, onEditAccount, movimientos }) {
+  const [selectedAcc, setSelectedAcc] = useState(null);
+  const [editingAcc, setEditingAcc] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+
+  const netWorth = accounts.reduce((s,a)=>s+a.balance,0);
+  const grouped = {};
+  accounts.forEach(a => { if(!grouped[a.type]) grouped[a.type]=[]; grouped[a.type].push(a); });
+  const typeOrder = ["efectivo","debito","billetera_virtual","credito","inversion"];
+
+  if (selectedAcc) {
+    const acc = accounts.find(a=>a.id===selectedAcc.id) || selectedAcc;
+    return (
+      <>
+        <CuentaDetalle
+          acc={acc}
+          movimientos={movimientos}
+          onClose={() => setSelectedAcc(null)}
+          onEdit={() => setEditingAcc(acc)}
+        />
+        {editingAcc && (
+          <FormCuenta existing={editingAcc} onClose={() => setEditingAcc(null)} onSave={(updated) => { onEditAccount(updated); setEditingAcc(null); }} />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <div style={{ padding:"0 16px" }}>
+      <div style={{ background:COLORS.green, borderRadius:14, padding:"18px 20px", marginBottom:20, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginBottom:4 }}>Patrimonio neto</div>
+          <div style={{ fontSize:28, fontWeight:700, fontFamily:"monospace", color:"white" }}>{fmt(netWorth)}</div>
+        </div>
+        <button onClick={() => setShowAdd(true)}
+          style={{ background:"rgba(255,255,255,0.2)", border:"none", borderRadius:10, padding:"8px 14px", display:"flex", alignItems:"center", gap:6, cursor:"pointer", color:"white", fontSize:13, fontWeight:600 }}>
+          <span style={{ fontSize:18, lineHeight:1 }}>+</span> Agregar cuenta
+        </button>
+      </div>
+
+      {typeOrder.map(type => {
+        const accs = grouped[type];
+        if (!accs) return null;
+        return (
+          <div key={type} style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:700, color:COLORS.textMuted, letterSpacing:"0.08em", marginBottom:8, paddingLeft:4 }}>{ACCOUNT_TYPES[type]}</div>
+            {accs.map(acc => (
+              <div key={acc.id} onClick={() => setSelectedAcc(acc)}
+                style={{ background:COLORS.surface, borderRadius:12, padding:"12px 14px", display:"flex", alignItems:"center", gap:12, marginBottom:8, cursor:"pointer" }}>
+                <div style={{ width:40, height:40, borderRadius:10, background:COLORS.border, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>{ACCOUNT_ICONS[acc.type]}</div>
+                <div style={{ flex:1 }}>
+                  <div style={{ color:COLORS.textPrimary, fontWeight:600, fontSize:15 }}>{acc.name}</div>
+                  <div style={{ color:COLORS.textSecondary, fontSize:12, textTransform:"capitalize" }}>{acc.type.replace("_"," ")}</div>
+                </div>
+                <div style={{ fontFamily:"monospace", fontWeight:700, fontSize:15, color:acc.balance<0?COLORS.redSoft:COLORS.green }}>{fmt(acc.balance)}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+
+      {showAdd && <FormCuenta onClose={() => setShowAdd(false)} onSave={(acc) => { onAddAccount(acc); setShowAdd(false); }} />}
+      {editingAcc && <FormCuenta existing={editingAcc} onClose={() => setEditingAcc(null)} onSave={(updated) => { onEditAccount(updated); setEditingAcc(null); }} />}
+    </div>
+  );
+}
+
+// APP
+export default function FinanzApp() {
+  const [tab, setTab] = useState("movimientos");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [activeForm, setActiveForm] = useState(null);
+  const [movimientos, setMovimientos] = useState(() => loadData("finanzapp_movimientos", []));
+  const [accounts, setAccounts] = useState(() => loadData("finanzapp_accounts", DEFAULT_ACCOUNTS));
+
+  useEffect(() => { saveData("finanzapp_movimientos", movimientos); }, [movimientos]);
+  useEffect(() => { saveData("finanzapp_accounts", accounts); }, [accounts]);
+
+  function handleSave(mov) {
+    if (mov.isEdit) {
+      setMovimientos(p => p.map(m => m.id===mov.id ? mov : m));
+      setAccounts(prev => prev.map(a => {
+        let bal = a.balance;
+        if (mov.prevTipo==="transferencia") {
+          if (a.id===mov.prevAccountId) bal += mov.prevAmount;
+          if (a.id===mov.prevAccountDestId) bal -= mov.prevAmount;
+        } else {
+          if (a.id===mov.prevAccountId) bal += mov.prevTipo==="gasto" ? mov.prevAmount : -mov.prevAmount;
+        }
+        if (mov.tipo==="transferencia") {
+          if (a.id===mov.accountId) bal -= mov.amount;
+          if (a.id===mov.accountDestId) bal += mov.amount;
+        } else {
+          if (a.id===mov.accountId) bal += mov.tipo==="gasto" ? -mov.amount : mov.amount;
+        }
+        return {...a, balance:bal};
+      }));
+    } else {
+      setMovimientos(p => [mov, ...p]);
+      if (mov.tipo==="transferencia") {
+        setAccounts(prev => prev.map(a => {
+          if (a.id===mov.accountId) return {...a, balance: a.balance - mov.amount};
+          if (a.id===mov.accountDestId) return {...a, balance: a.balance + mov.amount};
+          return a;
+        }));
+      } else if (mov.accountId) {
+        setAccounts(prev => prev.map(a => {
+          if (a.id!==mov.accountId) return a;
+          const delta = mov.tipo==="gasto" ? -mov.amount : mov.amount;
+          return {...a, balance: a.balance+delta};
+        }));
+      }
+    }
+  }
+
+  function handleDelete(id) {
+    const mov = movimientos.find(m => m.id===id);
+    if (mov) {
+      setAccounts(prev => prev.map(a => {
+        if (mov.tipo==="transferencia") {
+          if (a.id===mov.accountId) return {...a, balance: a.balance + mov.amount};
+          if (a.id===mov.accountDestId) return {...a, balance: a.balance - mov.amount};
+        } else {
+          if (a.id===mov.accountId) {
+            const delta = mov.tipo==="gasto" ? mov.amount : -mov.amount;
+            return {...a, balance: a.balance + delta};
+          }
+        }
+        return a;
+      }));
+    }
+    setMovimientos(p => p.filter(m => m.id!==id));
+  }
+
+  function handleTypeSelect(tipo) {
+    setShowTypeModal(false);
+    if (tipo==="gasto"||tipo==="ingreso"||tipo==="transferencia") setActiveForm({ tipo });
+  }
+
+  const TABS = [
+    { id:"movimientos", label:"Movimientos", Icon:IconMovimientos },
+    { id:"periodicos",  label:"Periodicos",  Icon:IconPeriodicos },
+    { id:"analisis",    label:"Analisis",    Icon:IconAnalisis },
+    { id:"cuentas",     label:"Cuentas",     Icon:IconCuentas },
+  ];
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#000", display:"flex", justifyContent:"center", fontFamily:"-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <div style={{ width:"100%", maxWidth:500, minHeight:"100vh", background:COLORS.bg, display:"flex", flexDirection:"column" }}>
+        <div style={{ padding:"16px 20px 12px", display:"flex", alignItems:"baseline" }}>
+          <span style={{ fontSize:22, fontWeight:700, color:COLORS.green, letterSpacing:"-0.5px" }}>Finanz</span>
+          <span style={{ fontSize:22, fontWeight:700, color:COLORS.textPrimary, letterSpacing:"-0.5px" }}>App</span>
+        </div>
+        <div style={{ flex:1, overflowY:"auto", paddingBottom:80 }}>
+          {tab==="movimientos" && <TabMovimientos selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} onDelete={handleDelete} onEdit={handleSave} accounts={accounts} />}
+          {tab==="periodicos"  && <TabPeriodicos  selectedDate={selectedDate} onDateChange={setSelectedDate} />}
+          {tab==="analisis"    && <TabAnalisis    selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} />}
+          {tab==="cuentas"     && <TabCuentas accounts={accounts} movimientos={movimientos} onAddAccount={(acc) => setAccounts(p => [...p, acc])} onEditAccount={(acc) => setAccounts(p => p.map(a => a.id===acc.id ? acc : a))} />}
+        </div>
+        <button onClick={() => setShowTypeModal(true)}
+          style={{ position:"fixed", bottom:72, right:16, width:56, height:56, borderRadius:"50%", background:COLORS.blue, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 16px rgba(55,138,221,0.45)", zIndex:100 }}>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+        <div style={{ position:"fixed", bottom:0, width:"100%", maxWidth:500, background:COLORS.bg, borderTop:"1px solid "+COLORS.border, display:"flex", zIndex:99 }}>
+          {TABS.map(({ id, label, Icon }) => (
+            <button key={id} onClick={() => setTab(id)} style={{ flex:1, background:"none", border:"none", cursor:"pointer", padding:"10px 0 8px", display:"flex", flexDirection:"column", alignItems:"center", position:"relative" }}>
+              {tab===id && <div style={{ position:"absolute", top:0, left:"25%", width:"50%", height:2, background:COLORS.green, borderRadius:"0 0 2px 2px" }} />}
+              <Icon active={tab===id} />
+              <span style={{ fontSize:11, marginTop:3, color:tab===id?COLORS.green:COLORS.textSecondary, fontWeight:tab===id?600:400 }}>{label}</span>
+            </button>
+          ))}
+        </div>
+        {showTypeModal && <ModalTipoMovimiento onClose={() => setShowTypeModal(false)} onSelect={handleTypeSelect} />}
+        {activeForm && <FormMovimiento tipo={activeForm.tipo||activeForm} existing={activeForm.existing||null} onClose={() => setActiveForm(null)} onSave={handleSave} onDelete={handleDelete} accounts={accounts} />}
+      </div>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(FinanzApp));
+  </script>
 </body>
 </html>
