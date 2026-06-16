@@ -1236,8 +1236,7 @@ function PantallaAjustes({ onClose, movimientos, accounts, onImport }) {
       m.tipo,
       m.accountDest||"",
     ].join("-"));
-    const blob = new Blob([lines.join("
-")], { type:"text/plain" });
+    const blob = new Blob([lines.join("\n")], { type:"text/plain" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "finanzapp_movimientos.txt";
@@ -1256,8 +1255,7 @@ function PantallaAjustes({ onClose, movimientos, accounts, onImport }) {
       m.tipo,
       '"'+(m.accountDest||"")+'"',
     ].join(","));
-    const blob = new Blob([[header,...lines].join("
-")], { type:"text/csv" });
+    const blob = new Blob([[header,...lines].join("\n")], { type:"text/csv" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "finanzapp_movimientos.csv";
