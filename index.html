@@ -796,10 +796,11 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
         {showItems && (
           <div style={{ background:COLORS.bg, borderRadius:10, marginBottom:14, overflow:"hidden" }}>
             {items.map((item,i) => (
-              <div key={item.id} style={{ display:"flex", justifyContent:"space-between", padding:"10px 14px", borderBottom: i<items.length-1?"1px solid "+COLORS.border:"none" }}>
+              <div key={item.id} onClick={() => setEditingItem(item)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", borderBottom: i<items.length-1?"1px solid "+COLORS.border:"none", cursor:"pointer" }}>
                 <div>
                   <div style={{ color:COLORS.textPrimary, fontSize:13 }}>{item.category}</div>
                   {item.cuotaNum && <div style={{ color:COLORS.textMuted, fontSize:11 }}>Cuota {item.cuotaNum}/{item.cuotaTotal}</div>}
+                  {item.description && <div style={{ color:COLORS.textMuted, fontSize:11 }}>{item.description}</div>}
                 </div>
                 <div style={{ color:"#aaa", fontFamily:"monospace", fontSize:13 }}>{fmt(item.amount)}</div>
               </div>
@@ -858,16 +859,18 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
   );
 }
 
-function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPagoTarjeta }) {
+function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPagoTarjeta, onEditMov, onDeleteMov }) {
   const [search, setSearch] = useState("");
-  const [pagando, setPagando] = useState(null); // {card, resumenKey, items}
+  const [pagando, setPagando] = useState(null);
+  const [editingItem, setEditingItem] = useState(null); // {card, resumenKey, items}
 
   // Group tarjeta gastos by card and resumen
   const creditCards = accounts.filter(a => a.type==="credito");
   const resumenes = [];
   creditCards.forEach(card => {
     if (!card.cierre) return;
-    const gastosTarjeta = movimientos.filter(m => m.accountId===card.id && (m.tipo==="gasto") && !m.resumenPagado);
+    const today = new Date();
+    const gastosTarjeta = movimientos.filter(m => m.accountId===card.id && m.tipo==="gasto" && !m.resumenPagado);
     const byResumen = {};
     gastosTarjeta.forEach(m => {
       const key = getResumenKey(m.date, card.cierre);
@@ -875,6 +878,10 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
       byResumen[key].push(m);
     });
     Object.entries(byResumen).forEach(([key, items]) => {
+      // Only show resumen from its cierre date onwards
+      const [ky, km] = key.split("-").map(Number);
+      const cierreDate = new Date(ky, km-1, card.cierre);
+      if (today < cierreDate) return; // not yet closed, don't show
       const venc = getVencimientoDate(key, card.vencimiento||20);
       const total = items.reduce((s,m) => s+m.amount, 0);
       const yaPagado = movimientos.some(m => m.tipo==="pagoTarjeta" && m.cardId===card.id && m.resumenKey===key);
@@ -882,8 +889,6 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
     });
   });
   resumenes.sort((a,b) => new Date(a.vencimiento)-new Date(b.vencimiento));
-
-  const [y, m2] = [selectedDate.getFullYear(), selectedDate.getMonth()];
 
   return (
     <div style={{ padding:"0 16px" }}>
@@ -933,6 +938,16 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
           accounts={accounts}
           onClose={() => setPagando(null)}
           onSave={(pago) => { onPagoTarjeta(pago); setPagando(null); }}
+        />
+      )}
+      {editingItem && (
+        <FormMovimiento
+          tipo={editingItem.tipo}
+          existing={editingItem}
+          onClose={() => setEditingItem(null)}
+          onSave={(payload) => { onEditMov(payload); setEditingItem(null); }}
+          onDelete={(id) => { onDeleteMov(id); setEditingItem(null); }}
+          accounts={accounts}
         />
       )}
     </div>
@@ -1080,7 +1095,7 @@ function getDateRange(selectedDate, periodo) {
   return { start: new Date(y,m,1), end: new Date(y,m+1,0), label: "" };
 }
 
-function TabAnalisis({ selectedDate, onDateChange, movimientos }) {
+function TabAnalisis({ selectedDate, onDateChange, movimientos, accounts }) {
   const [vista, setVista] = useState("gastos");
   const [chartType, setChartType] = useState("pie");
   const [periodo, setPeriodo] = useState("mensual");
@@ -1088,13 +1103,32 @@ function TabAnalisis({ selectedDate, onDateChange, movimientos }) {
 
   const range = getDateRange(selectedDate, periodo);
 
-  const filtered = movimientos.filter(m => {
+  function getTarjetaGastosEnPago(movs, range, accounts) {
+    // Find pagoTarjeta in this range and get their items' amounts by category
+    const pagos = movs.filter(m => m.tipo==="pagoTarjeta" && new Date(m.date) >= range.start && new Date(m.date) <= range.end);
+    const result = [];
+    pagos.forEach(pago => {
+      if (pago.itemIds) {
+        pago.itemIds.forEach(id => {
+          const item = movs.find(m => m.id===id);
+          if (item) result.push(item);
+        });
+      }
+    });
+    return result;
+  }
+
+  const allInRange = movimientos.filter(m => {
     const d = new Date(m.date);
+    // Exclude tarjeta gastos (show them only when paid)
+    const acc = m.accountId ? (typeof accounts !== "undefined" ? accounts : []).find(a=>a.id===m.accountId) : null;
+    if (m.tipo==="gasto" && acc && acc.type==="credito") return false;
     return d >= range.start && d <= range.end;
   });
 
-  const gastos   = filtered.filter(m => m.tipo==="gasto");
-  const ingresos = filtered.filter(m => m.tipo==="ingreso");
+  const tarjetaGastosEnPago = getTarjetaGastosEnPago(movimientos, range, accounts||[]);
+  const gastos   = [...allInRange.filter(m=>m.tipo==="gasto"), ...tarjetaGastosEnPago];
+  const ingresos = allInRange.filter(m=>m.tipo==="ingreso");
   const totalGastos   = gastos.reduce((s,m) => s+m.amount, 0);
   const totalIngresos = ingresos.reduce((s,m) => s+m.amount, 0);
   const totalTodo = totalGastos + totalIngresos;
@@ -1263,6 +1297,7 @@ function FormCuenta({ existing, onClose, onSave }) {
   const [type, setType] = useState(existing ? existing.type : "efectivo");
   const [cierre, setCierre] = useState(existing ? String(existing.cierre||"") : "");
   const [vencimiento, setVencimiento] = useState(existing ? String(existing.vencimiento||"") : "");
+  const [autoDebito, setAutoDebito] = useState(existing ? !!existing.autoDebito : false);
   const [confirm, setConfirm] = useState(false);
   const typeOrder = ["efectivo","debito","billetera_virtual","credito","inversion"];
   const fieldStyle = { width:"100%", boxSizing:"border-box", background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textPrimary, fontSize:14, outline:"none" };
@@ -1270,7 +1305,7 @@ function FormCuenta({ existing, onClose, onSave }) {
 
   function handleSave() {
     if (existing) { setConfirm(true); return; }
-    onSave({ id: Date.now(), name:name.trim(), type, balance:0, cierre: type==="credito" ? parseInt(cierre)||1 : null, vencimiento: type==="credito" ? parseInt(vencimiento)||1 : null });
+    onSave({ id: Date.now(), name:name.trim(), type, balance:0, cierre: type==="credito" ? parseInt(cierre)||1 : null, vencimiento: type==="credito" ? parseInt(vencimiento)||1 : null, autoDebito: type==="credito" ? autoDebito : false });
     onClose();
   }
 
@@ -1300,16 +1335,25 @@ function FormCuenta({ existing, onClose, onSave }) {
           </div>
         </div>
         {type==="credito" && (
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:20 }}>
-            <div>
-              <label style={labelStyle}>DIA DE CIERRE</label>
-              <input value={cierre} onChange={e=>setCierre(e.target.value.replace(/\D/g,""))} placeholder="ej: 5" maxLength={2} type="number"
-                style={{ ...fieldStyle, textAlign:"center" }} />
+          <div style={{ marginBottom:20 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:10 }}>
+              <div>
+                <label style={labelStyle}>DIA DE CIERRE</label>
+                <input value={cierre} onChange={e=>setCierre(e.target.value.replace(/\D/g,""))} placeholder="ej: 5" maxLength={2} type="number"
+                  style={{ ...fieldStyle, textAlign:"center" }} />
+              </div>
+              <div>
+                <label style={labelStyle}>DIA DE VENCIMIENTO</label>
+                <input value={vencimiento} onChange={e=>setVencimiento(e.target.value.replace(/\D/g,""))} placeholder="ej: 20" maxLength={2} type="number"
+                  style={{ ...fieldStyle, textAlign:"center" }} />
+              </div>
             </div>
-            <div>
-              <label style={labelStyle}>DIA DE VENCIMIENTO</label>
-              <input value={vencimiento} onChange={e=>setVencimiento(e.target.value.replace(/\D/g,""))} placeholder="ej: 20" maxLength={2} type="number"
-                style={{ ...fieldStyle, textAlign:"center" }} />
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <label style={{ ...labelStyle, marginBottom:0 }}>DÉBITO AUTOMÁTICO</label>
+              <button onClick={() => setAutoDebito(v=>!v)}
+                style={{ background: autoDebito ? COLORS.green : COLORS.surface2, border:"1px solid "+(autoDebito?COLORS.green:COLORS.border), borderRadius:20, padding:"4px 14px", color:"white", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                {autoDebito ? "Sí" : "No"}
+              </button>
             </div>
           </div>
         )}
@@ -1321,7 +1365,7 @@ function FormCuenta({ existing, onClose, onSave }) {
       {confirm && (
         <ConfirmDialog
           message="Guardar los cambios en esta cuenta?"
-          onConfirm={() => { onSave({ ...existing, name:name.trim(), type, cierre: type==="credito" ? parseInt(cierre)||existing.cierre : null, vencimiento: type==="credito" ? parseInt(vencimiento)||existing.vencimiento : null }); onClose(); }}
+          onConfirm={() => { onSave({ ...existing, name:name.trim(), type, cierre: type==="credito" ? parseInt(cierre)||existing.cierre : null, vencimiento: type==="credito" ? parseInt(vencimiento)||existing.vencimiento : null, autoDebito: type==="credito" ? autoDebito : false }); onClose(); }}
           onCancel={() => setConfirm(false)}
         />
       )}
@@ -1355,6 +1399,11 @@ function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
         <div style={{ flex:1 }}>
           <div style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:16 }}>{acc.name}</div>
           <div style={{ color:COLORS.textSecondary, fontSize:12 }}>{ACCOUNT_TYPES[acc.type]}</div>
+          {acc.type==="credito" && acc.cierre && (
+            <div style={{ color:COLORS.textMuted, fontSize:11, marginTop:2 }}>
+              Cierre día {acc.cierre} · Vence día {acc.vencimiento} · {acc.autoDebito ? "Débito automático" : "Pago manual"}
+            </div>
+          )}
         </div>
         <button onClick={onEdit} style={{ background:COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:8, padding:"6px 14px", color:COLORS.textPrimary, fontSize:13, cursor:"pointer" }}>Editar</button>
       </div>
@@ -1784,8 +1833,8 @@ function FinanzApp() {
         </div>
         <div style={{ flex:1, overflowY:"auto", paddingBottom:80 }}>
           {tab==="movimientos" && <TabMovimientos selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} onDelete={handleDelete} onEdit={handleSave} accounts={accounts} />}
-          {tab==="periodicos"  && <TabPeriodicos selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} accounts={accounts} onPagoTarjeta={handlePagoTarjeta} />}
-          {tab==="analisis"    && <TabAnalisis    selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} />}
+          {tab==="periodicos"  && <TabPeriodicos selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} accounts={accounts} onPagoTarjeta={handlePagoTarjeta} onEditMov={handleSave} onDeleteMov={handleDelete} />}
+          {tab==="analisis"    && <TabAnalisis    selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} accounts={accounts} />}
           {tab==="cuentas"     && <TabCuentas accounts={accounts} movimientos={movimientos} onAddAccount={(acc) => setAccounts(p => [...p, acc])} onEditAccount={(acc) => setAccounts(p => p.map(a => a.id===acc.id ? acc : a))} />}
         </div>
         <button onClick={() => setShowTypeModal(true)}
