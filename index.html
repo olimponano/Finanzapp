@@ -1269,8 +1269,7 @@ function PantallaAjustes({ onClose, movimientos, accounts, onImport }) {
     reader.onload = (ev) => {
       const text = ev.target.result;
       const isCSV = file.name.endsWith(".csv");
-      const lines = text.split("
-").filter(l => l.trim());
+      const lines = text.split("\n").filter(l => l.trim());
       const dataLines = isCSV ? lines.slice(1) : lines;
       const newMovs = [];
       const newAccNames = [];
