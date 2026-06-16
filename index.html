@@ -335,6 +335,10 @@ function FormMovimiento({ tipo, existing, onClose, onSave, onDelete, accounts })
   const [showAccDestPicker, setShowAccDestPicker] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [esCuotas, setEsCuotas] = useState(existing ? !!existing.cuotaTotal : false);
+  const [cuotaTotal, setCuotaTotal] = useState(existing ? String(existing.cuotaTotal||"") : "");
+  const [cuotaCant, setCuotaCant] = useState(existing ? String(existing.cuotaCant||"") : "");
+  const [cuotaMonto, setCuotaMonto] = useState(existing ? String(existing.cuotaMonto||"") : "");
 
   const isTransferencia = tipo==="transferencia";
   const isGasto = tipo==="gasto";
@@ -349,25 +353,46 @@ function FormMovimiento({ tipo, existing, onClose, onSave, onDelete, accounts })
   const labelStyle = { fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em", marginBottom:6, display:"block" };
 
   function handleSave() {
-    const mov = {
-      id: existing ? existing.id : Date.now(), tipo,
-      amount: parseFloat(amount)||0,
-      date: date ? date.toISOString() : now.toISOString(),
-      time: hh+":"+mm,
-      accountId: account ? account.id : null,
-      account: account ? account.name : "Sin cuenta",
-      accountDestId: isTransferencia ? (accountDest ? accountDest.id : null) : null,
-      accountDest: isTransferencia ? (accountDest ? accountDest.name : "Sin cuenta") : null,
-      category: isTransferencia ? "Transferencia" : (category ? category.label : "Sin categoria"),
-      categoryIcon: isTransferencia ? "" : (category ? category.icon : "📦"),
-      description,
-      isEdit: !!existing,
-      prevAccountId: existing ? existing.accountId : null,
-      prevAccountDestId: existing ? existing.accountDestId : null,
-      prevAmount: existing ? existing.amount : 0,
-      prevTipo: existing ? existing.tipo : tipo,
-    };
-    onSave(mov);
+    const baseDate = date ? new Date(date) : new Date(now);
+    const cuotaGroupId = existing ? (existing.cuotaGroupId || existing.id) : Date.now();
+    const n = esCuotas ? Math.max(1, parseInt(cuotaCant)||1) : 1;
+    const montoUnitario = esCuotas ? (parseFloat(cuotaMonto)||0) : (parseFloat(amount)||0);
+
+    const movs = [];
+    for (let i = 0; i < n; i++) {
+      const cuotaDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate());
+      const isPast = cuotaDate <= new Date();
+      movs.push({
+        id: Date.now() + i + Math.random(),
+        tipo,
+        amount: montoUnitario,
+        date: cuotaDate.toISOString(),
+        time: hh+":"+mm,
+        accountId: account ? account.id : null,
+        account: account ? account.name : "Sin cuenta",
+        accountDestId: isTransferencia ? (accountDest ? accountDest.id : null) : null,
+        accountDest: isTransferencia ? (accountDest ? accountDest.name : "Sin cuenta") : null,
+        category: isTransferencia ? "Transferencia" : (category ? category.label : "Sin categoria"),
+        categoryIcon: isTransferencia ? "" : (category ? category.icon : "📦"),
+        description,
+        cuotaGroupId: esCuotas ? cuotaGroupId : null,
+        cuotaNum: esCuotas ? i+1 : null,
+        cuotaTotal: esCuotas ? n : null,
+        cuotaMonto: esCuotas ? montoUnitario : null,
+        debitada: esCuotas ? isPast : true,
+        isEdit: false,
+        prevAccountId: null,
+        prevAccountDestId: null,
+        prevAmount: 0,
+        prevTipo: tipo,
+      });
+    }
+
+    if (existing) {
+      onSave({ type:"cuotaEdit", groupId: existing.cuotaGroupId || existing.id, existingId: existing.id, movs, prevAccountId: existing.accountId, prevAmount: existing.amount, prevTipo: existing.tipo });
+    } else {
+      onSave(movs);
+    }
     onClose();
   }
 
@@ -392,13 +417,39 @@ function FormMovimiento({ tipo, existing, onClose, onSave, onDelete, accounts })
           <div style={{ marginBottom:14 }}>
             <label style={labelStyle}>MONTO</label>
             <div style={{ display:"flex", gap:8, alignItems:"center", position:"relative" }}>
-              <input value={amount} onChange={e=>setAmount(e.target.value)} placeholder="$0" type="number"
+              <input value={amount} onChange={e => { setAmount(e.target.value); if(esCuotas && cuotaCant) { setCuotaMonto(String(Math.round(parseFloat(e.target.value||0)/parseInt(cuotaCant||1)*100)/100)); } }} placeholder="$0" type="number"
                 style={{ ...fieldStyle, fontSize:16, fontFamily:"monospace", fontWeight:700, color:accentColor, flex:1 }} />
               <button onClick={() => setShowCalc(v=>!v)}
                 style={{ background:COLORS.surface2, border:"1px solid "+COLORS.border, borderRadius:10, width:44, height:44, flexShrink:0, cursor:"pointer", fontSize:20, display:"flex", alignItems:"center", justifyContent:"center" }}>🧮</button>
-              {showCalc && <Calculator initialValue={amount} onResult={(v)=>setAmount(String(v))} onClose={()=>setShowCalc(false)} />}
+              {showCalc && <Calculator initialValue={amount} onResult={(v) => { setAmount(String(v)); if(esCuotas && cuotaCant) setCuotaMonto(String(Math.round(parseFloat(v||0)/parseInt(cuotaCant||1)*100)/100)); }} onClose={()=>setShowCalc(false)} />}
             </div>
           </div>
+
+          {isGasto && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <label style={{ ...labelStyle, marginBottom:0 }}>CUOTAS</label>
+                <button onClick={() => setEsCuotas(v=>!v)}
+                  style={{ background: esCuotas ? COLORS.green : COLORS.surface2, border:"1px solid "+(esCuotas?COLORS.green:COLORS.border), borderRadius:20, padding:"4px 14px", color:"white", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+                  {esCuotas ? "Sí" : "No"}
+                </button>
+              </div>
+              {esCuotas && (
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize:11 }}>NRO DE CUOTAS</label>
+                    <input value={cuotaCant} onChange={e => { const n=e.target.value; setCuotaCant(n); if(n && amount) setCuotaMonto(String(Math.round(parseFloat(amount||0)/parseInt(n||1)*100)/100)); else if(n && cuotaMonto) setAmount(String(Math.round(parseFloat(cuotaMonto||0)*parseInt(n||1)*100)/100)); }} placeholder="ej: 3" type="number"
+                      style={{ ...fieldStyle, textAlign:"center", fontFamily:"monospace" }} />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize:11 }}>VALOR CUOTA</label>
+                    <input value={cuotaMonto} onChange={e => { const m=e.target.value; setCuotaMonto(m); if(m && cuotaCant) setAmount(String(Math.round(parseFloat(m||0)*parseInt(cuotaCant||1)*100)/100)); else if(m && amount) setCuotaCant(String(Math.round(parseFloat(amount||0)/parseFloat(m||1)))); }} placeholder="$0" type="number"
+                      style={{ ...fieldStyle, textAlign:"center", fontFamily:"monospace" }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:14 }}>
             <div>
@@ -568,14 +619,16 @@ function MovimientoItem({ mov, onTap }) {
             <span style={{ color:COLORS.textSecondary, fontSize:12 }}>{mov.account||"Sin cuenta"}</span>
           </div>
         )}
+        <div style={{ color:amountColor, fontFamily:"monospace", fontWeight:700, fontSize:15, marginBottom:2 }}>
+          {isTransferencia ? "" : (isGasto ? "-" : "+")}{fmt(mov.amount)}
+          {mov.cuotaNum ? <span style={{ fontFamily:"inherit", fontWeight:400, fontSize:11, color:COLORS.textMuted, marginLeft:6 }}>Cuota {mov.cuotaNum}/{mov.cuotaTotal}</span> : null}
+        </div>
         <div style={{ color:COLORS.textSecondary, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
           {mov.time||""}
           {mov.description ? " · "+mov.description : ""}
         </div>
       </div>
-      <div style={{ color:amountColor, fontFamily:"monospace", fontWeight:700, fontSize:15, flexShrink:0, marginTop:2 }}>
-        {isTransferencia ? "" : (isGasto ? "-" : "+")}{fmt(mov.amount)}
-      </div>
+      <div style={{ width:8, flexShrink:0 }} />
     </div>
   );
 }
@@ -1377,60 +1430,93 @@ function FinanzApp() {
   useEffect(() => { saveData("finanzapp_movimientos", movimientos); }, [movimientos]);
   useEffect(() => { saveData("finanzapp_accounts", accounts); }, [accounts]);
 
-  function handleSave(mov) {
-    if (mov.isEdit) {
-      setMovimientos(p => p.map(m => m.id===mov.id ? mov : m));
+  // Auto-debit: on app open, check pending cuotas whose date has passed
+  useEffect(() => {
+    const now = new Date();
+    const pending = movimientos.filter(m => m.cuotaGroupId && !m.debitada && new Date(m.date) <= now);
+    if (pending.length === 0) return;
+    setMovimientos(prev => prev.map(m => pending.find(p=>p.id===m.id) ? {...m, debitada:true} : m));
+    setAccounts(prev => prev.map(a => {
+      let bal = a.balance;
+      pending.forEach(m => { if (a.id===m.accountId) bal -= m.amount; });
+      return {...a, balance:bal};
+    }));
+  }, []);
+
+  function handleSave(payload) {
+    // cuota group edit
+    if (payload && payload.type === "cuotaEdit") {
+      const { groupId, movs, prevAccountId, prevAmount, prevTipo } = payload;
+      const oldGroup = movimientos.filter(m => (m.cuotaGroupId===groupId) || m.id===groupId);
+      // Reverse old debited cuotas from accounts
       setAccounts(prev => prev.map(a => {
         let bal = a.balance;
-        if (mov.prevTipo==="transferencia") {
-          if (a.id===mov.prevAccountId) bal += mov.prevAmount;
-          if (a.id===mov.prevAccountDestId) bal -= mov.prevAmount;
+        oldGroup.forEach(m => { if (m.debitada && a.id===m.accountId) bal += m.amount; });
+        movs.forEach(m => { if (m.debitada && a.id===m.accountId) bal -= m.amount; });
+        return {...a, balance:bal};
+      }));
+      setMovimientos(prev => [...prev.filter(m => m.cuotaGroupId!==groupId && m.id!==groupId), ...movs]);
+      return;
+    }
+    // array of new movimientos (cuotas or single)
+    const movs = Array.isArray(payload) ? payload : [payload];
+    const first = movs[0];
+    if (first.isEdit) {
+      setMovimientos(p => p.map(m => m.id===first.id ? first : m));
+      setAccounts(prev => prev.map(a => {
+        let bal = a.balance;
+        if (first.prevTipo==="transferencia") {
+          if (a.id===first.prevAccountId) bal += first.prevAmount;
+          if (a.id===first.prevAccountDestId) bal -= first.prevAmount;
         } else {
-          if (a.id===mov.prevAccountId) bal += mov.prevTipo==="gasto" ? mov.prevAmount : -mov.prevAmount;
+          if (a.id===first.prevAccountId) bal += first.prevTipo==="gasto" ? first.prevAmount : -first.prevAmount;
         }
-        if (mov.tipo==="transferencia") {
-          if (a.id===mov.accountId) bal -= mov.amount;
-          if (a.id===mov.accountDestId) bal += mov.amount;
+        if (first.tipo==="transferencia") {
+          if (a.id===first.accountId) bal -= first.amount;
+          if (a.id===first.accountDestId) bal += first.amount;
         } else {
-          if (a.id===mov.accountId) bal += mov.tipo==="gasto" ? -mov.amount : mov.amount;
+          if (a.id===first.accountId) bal += first.tipo==="gasto" ? -first.amount : first.amount;
         }
         return {...a, balance:bal};
       }));
     } else {
-      setMovimientos(p => [mov, ...p]);
-      if (mov.tipo==="transferencia") {
-        setAccounts(prev => prev.map(a => {
-          if (a.id===mov.accountId) return {...a, balance: a.balance - mov.amount};
-          if (a.id===mov.accountDestId) return {...a, balance: a.balance + mov.amount};
-          return a;
-        }));
-      } else if (mov.accountId) {
-        setAccounts(prev => prev.map(a => {
-          if (a.id!==mov.accountId) return a;
-          const delta = mov.tipo==="gasto" ? -mov.amount : mov.amount;
-          return {...a, balance: a.balance+delta};
-        }));
-      }
+      setMovimientos(p => [...movs, ...p]);
+      setAccounts(prev => prev.map(a => {
+        let bal = a.balance;
+        movs.forEach(m => {
+          if (!m.debitada) return;
+          if (m.tipo==="transferencia") {
+            if (a.id===m.accountId) bal -= m.amount;
+            if (a.id===m.accountDestId) bal += m.amount;
+          } else if (a.id===m.accountId) {
+            bal += m.tipo==="gasto" ? -m.amount : m.amount;
+          }
+        });
+        return {...a, balance:bal};
+      }));
     }
   }
 
   function handleDelete(id) {
     const mov = movimientos.find(m => m.id===id);
-    if (mov) {
-      setAccounts(prev => prev.map(a => {
-        if (mov.tipo==="transferencia") {
-          if (a.id===mov.accountId) return {...a, balance: a.balance + mov.amount};
-          if (a.id===mov.accountDestId) return {...a, balance: a.balance - mov.amount};
+    if (!mov) return;
+    const toDelete = mov.cuotaGroupId
+      ? movimientos.filter(m => m.cuotaGroupId===mov.cuotaGroupId)
+      : [mov];
+    setAccounts(prev => prev.map(a => {
+      let bal = a.balance;
+      toDelete.forEach(m => {
+        if (m.tipo==="transferencia") {
+          if (a.id===m.accountId) bal += m.amount;
+          if (a.id===m.accountDestId) bal -= m.amount;
         } else {
-          if (a.id===mov.accountId) {
-            const delta = mov.tipo==="gasto" ? mov.amount : -mov.amount;
-            return {...a, balance: a.balance + delta};
-          }
+          if (a.id===m.accountId) bal += m.tipo==="gasto" ? m.amount : -m.amount;
         }
-        return a;
-      }));
-    }
-    setMovimientos(p => p.filter(m => m.id!==id));
+      });
+      return {...a, balance:bal};
+    }));
+    const idsToDelete = new Set(toDelete.map(m=>m.id));
+    setMovimientos(p => p.filter(m => !idsToDelete.has(m.id)));
   }
 
   function handleTypeSelect(tipo) {
