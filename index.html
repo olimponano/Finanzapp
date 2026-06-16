@@ -320,7 +320,11 @@ function FormMovimiento({ tipo, existing, onClose, onSave, onDelete, accounts })
   const now = new Date();
   const initDate = existing ? new Date(existing.date) : now;
   const initTimeParts = existing && existing.time ? existing.time.split(":") : [pad(now.getHours()), pad(now.getMinutes())];
-  const [amount, setAmount] = useState(existing ? String(existing.amount) : "");
+  const [amount, setAmount] = useState(existing
+    ? (existing.cuotaGroupId
+      ? String(Math.round((existing.cuotaMonto||existing.amount) * (existing.cuotaTotal||1) * 100)/100)
+      : String(existing.amount))
+    : "");
   const [date, setDate] = useState(initDate);
   const [hh, setHh] = useState(initTimeParts[0]||"00");
   const [mm, setMm] = useState(initTimeParts[1]||"00");
@@ -356,10 +360,13 @@ function FormMovimiento({ tipo, existing, onClose, onSave, onDelete, accounts })
     const cuotaGroupId = existing ? (existing.cuotaGroupId || existing.id) : Date.now();
     const n = esCuotas ? Math.max(1, parseInt(cuotaCant)||1) : 1;
     const montoUnitario = esCuotas ? (parseFloat(cuotaMonto)||0) : (parseFloat(amount)||0);
+    // If editing a cuota, use its cuotaNum as reference (0-indexed offset)
+    const refNum = (existing && existing.cuotaNum) ? existing.cuotaNum - 1 : 0;
 
     const movs = [];
     for (let i = 0; i < n; i++) {
-      const cuotaDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + i, baseDate.getDate());
+      const monthOffset = i - refNum;
+      const cuotaDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + monthOffset, baseDate.getDate());
       const isPast = cuotaDate <= new Date();
       movs.push({
         id: Date.now() + i + Math.random(),
