@@ -596,6 +596,8 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
   const byDay = {};
   filtered.forEach(m => { const d=new Date(m.date); const k=d.toDateString(); if(!byDay[k]) byDay[k]={date:d,items:[]}; byDay[k].items.push(m); });
   const dayKeys = Object.keys(byDay).sort((a,b)=>new Date(b)-new Date(a));
+  filtered.forEach(m => { const d=new Date(m.date); const k=d.toDateString(); if(!byDay[k]) byDay[k]={date:d,items:[]}; byDay[k].items.push(m); });
+  const dayKeys = Object.keys(byDay).sort((a,b)=>new Date(b)-new Date(a));
   return (
     <div style={{ padding:"0 16px" }}>
       <SearchBar value={search} onChange={setSearch} />
@@ -625,7 +627,7 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
         const d = group.date;
         const isToday = new Date().toDateString()===key;
         const dayLabel = isToday?"HOY":d.getDate()+" "+MONTHS_SHORT[d.getMonth()].toUpperCase()+" "+d.getFullYear();
-        const dayTotal = group.items.reduce((s,m)=>m.tipo==="gasto"?s-m.amount:s+m.amount,0);
+        const dayTotal = group.items.reduce((s,m)=>m.tipo==="gasto"?s-m.amount:m.tipo==="ingreso"?s+m.amount:s,0);
         return (
           <div key={key} style={{ marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0 4px", borderBottom:"1px solid "+COLORS.border }}>
@@ -1066,7 +1068,8 @@ function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
   const balance  = ingresos - gastos;
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:250, background:"rgba(0,0,0,0.5)", display:"flex", flexDirection:"column", alignItems:"center" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:250, background:COLORS.bg, display:"flex", justifyContent:"center" }}>
+      <div style={{ width:"100%", maxWidth:500, display:"flex", flexDirection:"column", height:"100%" }}>
       {/* Header */}
       <div style={{ padding:"16px 20px", display:"flex", alignItems:"center", gap:12, borderBottom:"1px solid "+COLORS.border }}>
         <button onClick={onClose} style={{ background:"none", border:"none", color:COLORS.textSecondary, fontSize:22, cursor:"pointer", padding:0 }}>‹</button>
@@ -1150,6 +1153,7 @@ function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
           })
         )}
       </div>
+    </div>
     </div>
   );
 }
@@ -1318,7 +1322,8 @@ function PantallaAjustes({ onClose, movimientos, accounts, onImport }) {
   const btnStyle = (color) => ({ width:"100%", background:color||COLORS.surface, border:"1px solid "+COLORS.border, borderRadius:12, padding:"14px 16px", color:COLORS.textPrimary, fontSize:14, fontWeight:600, cursor:"pointer", display:"flex", alignItems:"center", gap:12, marginBottom:8 });
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:300, background:"rgba(0,0,0,0.5)", display:"flex", flexDirection:"column", alignItems:"center" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:300, background:COLORS.bg, display:"flex", justifyContent:"center" }}>
+      <div style={{ width:"100%", maxWidth:500, display:"flex", flexDirection:"column", height:"100%" }}>
       <div style={{ padding:"16px 20px", display:"flex", alignItems:"center", borderBottom:"1px solid "+COLORS.border }}>
         <button onClick={onClose} style={{ background:"none", border:"none", color:COLORS.textSecondary, fontSize:22, cursor:"pointer", marginRight:12 }}>‹</button>
         <span style={{ color:COLORS.textPrimary, fontSize:18, fontWeight:700 }}>Ajustes</span>
@@ -1356,6 +1361,7 @@ function PantallaAjustes({ onClose, movimientos, accounts, onImport }) {
           {msg && <div style={{ background:COLORS.surface, borderRadius:10, padding:"12px 14px", color:COLORS.green, fontSize:13, marginTop:8 }}>{msg}</div>}
         </div>
 
+      </div>
       </div>
     </div>
   );
