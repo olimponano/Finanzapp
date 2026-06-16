@@ -596,8 +596,6 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
   const byDay = {};
   filtered.forEach(m => { const d=new Date(m.date); const k=d.toDateString(); if(!byDay[k]) byDay[k]={date:d,items:[]}; byDay[k].items.push(m); });
   const dayKeys = Object.keys(byDay).sort((a,b)=>new Date(b)-new Date(a));
-  filtered.forEach(m => { const d=new Date(m.date); const k=d.toDateString(); if(!byDay[k]) byDay[k]={date:d,items:[]}; byDay[k].items.push(m); });
-  const dayKeys = Object.keys(byDay).sort((a,b)=>new Date(b)-new Date(a));
   return (
     <div style={{ padding:"0 16px" }}>
       <SearchBar value={search} onChange={setSearch} />
