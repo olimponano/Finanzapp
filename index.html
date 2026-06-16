@@ -335,10 +335,9 @@ function FormMovimiento({ tipo, existing, onClose, onSave, onDelete, accounts })
   const [showAccDestPicker, setShowAccDestPicker] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
-  const [esCuotas, setEsCuotas] = useState(existing ? !!existing.cuotaTotal : false);
-  const [cuotaTotal, setCuotaTotal] = useState(existing ? String(existing.cuotaTotal||"") : "");
-  const [cuotaCant, setCuotaCant] = useState(existing ? String(existing.cuotaCant||"") : "");
-  const [cuotaMonto, setCuotaMonto] = useState(existing ? String(existing.cuotaMonto||"") : "");
+  const [esCuotas, setEsCuotas] = useState(existing ? !!existing.cuotaGroupId : false);
+  const [cuotaCant, setCuotaCant] = useState(existing ? String(existing.cuotaTotal||"") : "");
+  const [cuotaMonto, setCuotaMonto] = useState(existing ? String(existing.cuotaMonto||existing.amount||"") : "");
 
   const isTransferencia = tipo==="transferencia";
   const isGasto = tipo==="gasto";
@@ -389,7 +388,8 @@ function FormMovimiento({ tipo, existing, onClose, onSave, onDelete, accounts })
     }
 
     if (existing) {
-      onSave({ type:"cuotaEdit", groupId: existing.cuotaGroupId || existing.id, existingId: existing.id, movs, prevAccountId: existing.accountId, prevAmount: existing.amount, prevTipo: existing.tipo });
+      const groupId = existing.cuotaGroupId || existing.id;
+      onSave({ type:"cuotaEdit", groupId, movs });
     } else {
       onSave(movs);
     }
@@ -619,16 +619,17 @@ function MovimientoItem({ mov, onTap }) {
             <span style={{ color:COLORS.textSecondary, fontSize:12 }}>{mov.account||"Sin cuenta"}</span>
           </div>
         )}
-        <div style={{ color:amountColor, fontFamily:"monospace", fontWeight:700, fontSize:15, marginBottom:2 }}>
-          {isTransferencia ? "" : (isGasto ? "-" : "+")}{fmt(mov.amount)}
-          {mov.cuotaNum ? <span style={{ fontFamily:"inherit", fontWeight:400, fontSize:11, color:COLORS.textMuted, marginLeft:6 }}>Cuota {mov.cuotaNum}/{mov.cuotaTotal}</span> : null}
-        </div>
         <div style={{ color:COLORS.textSecondary, fontSize:12, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
           {mov.time||""}
           {mov.description ? " · "+mov.description : ""}
         </div>
       </div>
-      <div style={{ width:8, flexShrink:0 }} />
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", flexShrink:0, marginTop:2 }}>
+        <div style={{ color:amountColor, fontFamily:"monospace", fontWeight:700, fontSize:15 }}>
+          {isTransferencia ? "" : (isGasto ? "-" : "+")}{fmt(mov.amount)}
+        </div>
+        {mov.cuotaNum ? <div style={{ color:COLORS.textMuted, fontSize:11, marginTop:2 }}>Cuota {mov.cuotaNum}/{mov.cuotaTotal}</div> : null}
+      </div>
     </div>
   );
 }
@@ -1444,21 +1445,21 @@ function FinanzApp() {
   }, []);
 
   function handleSave(payload) {
-    // cuota group edit
     if (payload && payload.type === "cuotaEdit") {
-      const { groupId, movs, prevAccountId, prevAmount, prevTipo } = payload;
-      const oldGroup = movimientos.filter(m => (m.cuotaGroupId===groupId) || m.id===groupId);
-      // Reverse old debited cuotas from accounts
-      setAccounts(prev => prev.map(a => {
-        let bal = a.balance;
-        oldGroup.forEach(m => { if (m.debitada && a.id===m.accountId) bal += m.amount; });
-        movs.forEach(m => { if (m.debitada && a.id===m.accountId) bal -= m.amount; });
-        return {...a, balance:bal};
-      }));
-      setMovimientos(prev => [...prev.filter(m => m.cuotaGroupId!==groupId && m.id!==groupId), ...movs]);
+      const { groupId, movs } = payload;
+      setMovimientos(prev => {
+        const oldGroup = prev.filter(m => m.cuotaGroupId===groupId || m.id===groupId);
+        const rest = prev.filter(m => m.cuotaGroupId!==groupId && m.id!==groupId);
+        setAccounts(accs => accs.map(a => {
+          let bal = a.balance;
+          oldGroup.forEach(m => { if (m.debitada && a.id===m.accountId) bal += m.amount; });
+          movs.forEach(m => { if (m.debitada && a.id===m.accountId) bal -= m.amount; });
+          return {...a, balance:bal};
+        }));
+        return [...movs, ...rest];
+      });
       return;
     }
-    // array of new movimientos (cuotas or single)
     const movs = Array.isArray(payload) ? payload : [payload];
     const first = movs[0];
     if (first.isEdit) {
