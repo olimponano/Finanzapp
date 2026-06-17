@@ -672,7 +672,7 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
   const totalResumen = mov.totalResumen || items.reduce((s,m)=>s+m.amount,0);
   const [editing, setEditing] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-  const [monto, setMonto] = useState(String(mov.amount));
+  const [monto, setMonto] = useState(String(mov.amount - (mov.impuestos||[]).reduce((s,i)=>s+i.monto,0)));
   const [account, setAccount] = useState(accounts.find(a=>a.id===mov.accountId)||null);
   const [impuestos, setImpuestos] = useState(mov.impuestos||[]);
   const [newImpNombre, setNewImpNombre] = useState("");
@@ -694,9 +694,10 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
   }
 
   function handleSave() {
+    const montoTotal = (parseFloat(monto)||0) + totalImp;
     onSave({
       ...mov,
-      amount: parseFloat(monto)||0,
+      amount: montoTotal,
       accountId: account ? account.id : null,
       account: account ? account.name : "Sin cuenta",
       impuestos, autoDebito, esParcial,
@@ -731,9 +732,15 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
               <span style={{ color:COLORS.redSoft, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>-{fmt(mov.amount)}</span>
             </div>
             {mov.esParcial && (
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom: mov.impuestos && mov.impuestos.length>0 ? 6 : 0 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom: (mov.impuestos && mov.impuestos.length>0) ? 6 : 0 }}>
                 <span style={{ color:"#f39c12", fontSize:13, fontWeight:600 }}>Restante</span>
                 <span style={{ color:"#f39c12", fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(totalResumen - mov.amount)}</span>
+              </div>
+            )}
+            {mov.impuestos && mov.impuestos.length>0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6, paddingTop:6, borderTop:"1px solid "+COLORS.border }}>
+                <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Impuestos</span>
+                <span style={{ color:COLORS.textPrimary, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(mov.impuestos.reduce((s,i)=>s+i.monto,0))}</span>
               </div>
             )}
             {mov.impuestos && mov.impuestos.map((imp,i) => (
@@ -806,6 +813,7 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
                   <input value={newImpMonto} onChange={e=>setNewImpMonto(e.target.value)} type="number" placeholder="$0" style={{ ...fieldStyle, flex:1, fontSize:13, padding:"10px 12px", textAlign:"center" }} />
                   <button onClick={addImpuesto} style={{ background:COLORS.green, border:"none", borderRadius:10, padding:"10px 14px", color:"white", fontWeight:700, cursor:"pointer" }}>+</button>
                 </div>
+                {totalImp > 0 && <div style={{ fontSize:11, color:COLORS.textMuted, marginTop:4 }}>Total impuestos: {fmt(totalImp)}</div>}
               </div>
               <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
                 <label style={{ ...labelStyle, marginBottom:0 }}>DÉBITO AUTOMÁTICO</label>
@@ -820,7 +828,7 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
           <div style={{ display:"flex", gap:10 }}>
             <button onClick={() => editing ? setConfirmEdit(true) : setEditing(true)}
               style={{ flex:1, background:COLORS.blue, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:15, fontWeight:700, cursor:"pointer" }}>
-              {editing ? "Guardar" : "Editar"}
+              {editing ? "Guardar ("+fmt((parseFloat(monto)||0)+totalImp)+")" : "Editar"}
             </button>
             <button onClick={() => setConfirmDel(true)}
               style={{ flex:1, background:COLORS.red, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:15, fontWeight:700, cursor:"pointer" }}>
@@ -1553,13 +1561,14 @@ function TabAnalisis({ selectedDate, onDateChange, movimientos, accounts }) {
 }
 
 // FORM CUENTA (agregar o editar)
-function FormCuenta({ existing, onClose, onSave }) {
+function FormCuenta({ existing, onClose, onSave, onDelete }) {
   const [name, setName] = useState(existing ? existing.name : "");
   const [type, setType] = useState(existing ? existing.type : "efectivo");
   const [cierre, setCierre] = useState(existing ? String(existing.cierre||"") : "");
   const [vencimiento, setVencimiento] = useState(existing ? String(existing.vencimiento||"") : "");
   const [autoDebito, setAutoDebito] = useState(existing ? !!existing.autoDebito : false);
   const [confirm, setConfirm] = useState(false);
+  const [confirmDel, setConfirmDel] = useState(false);
   const typeOrder = ["efectivo","debito","billetera_virtual","credito","inversion"];
   const fieldStyle = { width:"100%", boxSizing:"border-box", background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textPrimary, fontSize:14, outline:"none" };
   const labelStyle = { fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em", marginBottom:6, display:"block" };
@@ -1619,15 +1628,28 @@ function FormCuenta({ existing, onClose, onSave }) {
           </div>
         )}
         <button onClick={handleSave} disabled={!name.trim()}
-          style={{ width:"100%", background: name.trim() ? COLORS.green : COLORS.border, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:16, fontWeight:700, cursor: name.trim() ? "pointer" : "default" }}>
+          style={{ width:"100%", background: name.trim() ? COLORS.green : COLORS.border, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:16, fontWeight:700, cursor: name.trim() ? "pointer" : "default", marginBottom: existing ? 10 : 0 }}>
           {existing ? "Guardar cambios" : "Agregar cuenta"}
         </button>
+        {existing && (
+          <button onClick={() => setConfirmDel(true)}
+            style={{ width:"100%", background:"none", border:"1px solid "+COLORS.red, borderRadius:12, padding:"14px 0", color:COLORS.redSoft, fontSize:15, fontWeight:700, cursor:"pointer" }}>
+            Eliminar cuenta
+          </button>
+        )}
       </div>
       {confirm && (
         <ConfirmDialog
           message="Guardar los cambios en esta cuenta?"
           onConfirm={() => { onSave({ ...existing, name:name.trim(), type, cierre: type==="credito" ? parseInt(cierre)||existing.cierre : null, vencimiento: type==="credito" ? parseInt(vencimiento)||existing.vencimiento : null, autoDebito: type==="credito" ? autoDebito : false }); onClose(); }}
           onCancel={() => setConfirm(false)}
+        />
+      )}
+      {confirmDel && (
+        <ConfirmDialog
+          message="Eliminar esta cuenta? Esta accion no se puede deshacer."
+          onConfirm={() => { onDelete(existing.id); onClose(); }}
+          onCancel={() => setConfirmDel(false)}
         />
       )}
     </div>
@@ -1748,7 +1770,7 @@ function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
   );
 }
 
-function TabCuentas({ accounts, onAddAccount, onEditAccount, movimientos }) {
+function TabCuentas({ accounts, onAddAccount, onEditAccount, onDeleteAccount, movimientos }) {
   const [selectedAcc, setSelectedAcc] = useState(null);
   const [editingAcc, setEditingAcc] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -1769,7 +1791,12 @@ function TabCuentas({ accounts, onAddAccount, onEditAccount, movimientos }) {
           onEdit={() => setEditingAcc(acc)}
         />
         {editingAcc && (
-          <FormCuenta existing={editingAcc} onClose={() => setEditingAcc(null)} onSave={(updated) => { onEditAccount(updated); setEditingAcc(null); }} />
+          <FormCuenta
+            existing={editingAcc}
+            onClose={() => setEditingAcc(null)}
+            onSave={(updated) => { onEditAccount(updated); setEditingAcc(null); }}
+            onDelete={(id) => { onDeleteAccount(id); setEditingAcc(null); setSelectedAcc(null); }}
+          />
         )}
       </>
     );
@@ -2053,9 +2080,16 @@ function FinanzApp() {
     const mov = movimientos.find(m => m.id===id);
     if (!mov) return;
     if (mov.tipo==="pagoTarjeta") {
-      if (mov.accountId) {
-        setAccounts(prev => prev.map(a => a.id===mov.accountId ? {...a, balance: a.balance + mov.amount} : a));
-      }
+      setAccounts(prev => prev.map(a => {
+        let bal = a.balance;
+        if (mov.accountId && a.id===mov.accountId) bal += mov.amount;
+        if (mov.totalResumen != null && a.id===mov.cardId) {
+          const montoSinImpuestos = mov.amount - (mov.impuestos||[]).reduce((s,i)=>s+i.monto,0);
+          const exceso = montoSinImpuestos - mov.totalResumen;
+          if (exceso > 0) bal -= exceso;
+        }
+        return {...a, balance:bal};
+      }));
       setMovimientos(p => p.filter(m => m.id!==id));
       return;
     }
@@ -2126,7 +2160,7 @@ function FinanzApp() {
           {tab==="movimientos" && <TabMovimientos selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} onDelete={handleDelete} onEdit={handleSave} accounts={accounts} />}
           {tab==="periodicos"  && <TabPeriodicos selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} accounts={accounts} onPagoTarjeta={handlePagoTarjeta} onEditMov={handleSave} onDeleteMov={handleDelete} />}
           {tab==="analisis"    && <TabAnalisis    selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} accounts={accounts} />}
-          {tab==="cuentas"     && <TabCuentas accounts={accounts} movimientos={movimientos} onAddAccount={(acc) => setAccounts(p => [...p, acc])} onEditAccount={(acc) => setAccounts(p => p.map(a => a.id===acc.id ? acc : a))} />}
+          {tab==="cuentas"     && <TabCuentas accounts={accounts} movimientos={movimientos} onAddAccount={(acc) => setAccounts(p => [...p, acc])} onEditAccount={(acc) => setAccounts(p => p.map(a => a.id===acc.id ? acc : a))} onDeleteAccount={(id) => setAccounts(p => p.filter(a => a.id!==id))} />}
         </div>
         <button onClick={() => setShowTypeModal(true)}
           style={{ position:"fixed", bottom:72, right:16, width:56, height:56, borderRadius:"50%", background:COLORS.blue, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 16px rgba(55,138,221,0.45)", zIndex:100 }}>
