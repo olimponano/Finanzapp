@@ -666,6 +666,72 @@ function MovimientoItem({ mov, onTap, accounts }) {
   );
 }
 
+// PAGO TARJETA DETAIL
+function PagoTarjetaDetail({ mov, movimientos, onClose }) {
+  const items = mov.items || (mov.itemIds ? mov.itemIds.map(id => movimientos.find(m=>m.id===id)).filter(Boolean) : []);
+  const totalResumen = mov.totalResumen || items.reduce((s,m)=>s+m.amount,0);
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", flexDirection:"column", justifyContent:"flex-end", alignItems:"center" }}>
+      <div onClick={onClose} style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.6)" }} />
+      <div style={{ position:"relative", background:COLORS.surface, borderRadius:"20px 20px 0 0", width:"100%", maxWidth:500, boxSizing:"border-box", maxHeight:"90vh", display:"flex", flexDirection:"column" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"20px 20px 16px" }}>
+          <div style={{ width:40, height:40, borderRadius:"50%", background:COLORS.red, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, color:"white", flexShrink:0 }}>💳</div>
+          <div style={{ flex:1 }}>
+            <div style={{ color:COLORS.textPrimary, fontSize:16, fontWeight:700 }}>Pago {mov.cardName||"Tarjeta"}</div>
+            <div style={{ color:COLORS.textSecondary, fontSize:12 }}>
+              {mov.account||""} · {mov.esParcial ? "Pago parcial" : "Pago total"}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:COLORS.textSecondary, fontSize:22, cursor:"pointer" }}>×</button>
+        </div>
+        <div style={{ overflowY:"auto", padding:"0 20px 24px", flex:1 }}>
+          {/* Amounts summary */}
+          <div style={{ background:COLORS.bg, borderRadius:10, padding:"12px 14px", marginBottom:14 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+              <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Pagado</span>
+              <span style={{ color:COLORS.redSoft, fontFamily:"monospace", fontWeight:700, fontSize:15 }}>-{fmt(mov.amount)}</span>
+            </div>
+            {mov.esParcial && (
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Total resumen</span>
+                <span style={{ color:COLORS.textMuted, fontFamily:"monospace", fontSize:13 }}>{fmt(totalResumen)}</span>
+              </div>
+            )}
+            {mov.impuestos && mov.impuestos.length>0 && mov.impuestos.map((imp,i) => (
+              <div key={i} style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                <span style={{ color:COLORS.textMuted, fontSize:12 }}>{imp.nombre}</span>
+                <span style={{ color:COLORS.textMuted, fontFamily:"monospace", fontSize:12 }}>{fmt(imp.monto)}</span>
+              </div>
+            ))}
+          </div>
+          {/* Items */}
+          <div style={{ fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em", marginBottom:8 }}>GASTOS INCLUIDOS</div>
+          <div style={{ background:COLORS.bg, borderRadius:10, overflow:"hidden" }}>
+            {items.length===0 ? (
+              <div style={{ padding:"16px 14px", color:COLORS.textMuted, fontSize:13 }}>Sin detalle disponible</div>
+            ) : items.map((item,i) => (
+              <div key={item.id||i} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"12px 14px", borderBottom: i<items.length-1?"1px solid "+COLORS.border:"none" }}>
+                <div style={{ width:34, height:34, borderRadius:"50%", background:"#444", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
+                  {item.categoryIcon||"📦"}
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ color:"#ccc", fontWeight:600, fontSize:13 }}>{item.category}</div>
+                  <div style={{ color:COLORS.textSecondary, fontSize:11 }}>
+                    {item.account||""}{item.time ? " · "+item.time : ""}
+                    {item.description ? " · "+item.description : ""}
+                  </div>
+                  {item.cuotaNum && <div style={{ color:COLORS.textMuted, fontSize:10 }}>Cuota {item.cuotaNum}/{item.cuotaTotal}</div>}
+                </div>
+                <div style={{ color:"#aaa", fontFamily:"monospace", fontWeight:700, fontSize:13, flexShrink:0 }}>-{fmt(item.amount)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // TABS
 function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onEdit, accounts }) {
   const [search, setSearch] = useState("");
@@ -722,7 +788,9 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
           </div>
         );
       })}
-      {detailMov && (
+      {detailMov && detailMov.tipo==="pagoTarjeta" && (
+        <PagoTarjetaDetail mov={detailMov} movimientos={movimientos} onClose={() => setDetailMov(null)} />
+      )}      {detailMov && detailMov.tipo!=="pagoTarjeta" && (
         <FormMovimiento
           tipo={detailMov.tipo}
           existing={detailMov}
@@ -745,9 +813,11 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
   const [impuestos, setImpuestos] = useState([]);
   const [newImpNombre, setNewImpNombre] = useState("");
   const [newImpMonto, setNewImpMonto] = useState("");
-  const [autoDebito, setAutoDebito] = useState(false);
   const [showItems, setShowItems] = useState(false);
+  const [autoDebito, setAutoDebito] = useState(!!card.autoDebito);
   const totalImp = impuestos.reduce((s,i) => s+i.monto, 0);
+  const montoPagado = parseFloat(monto)||0;
+  const esParcial = montoPagado < total;
   const fieldStyle = { width:"100%", boxSizing:"border-box", background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textPrimary, fontSize:14, outline:"none" };
   const labelStyle = { fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em", marginBottom:6, display:"block" };
 
@@ -758,7 +828,7 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
   }
 
   function handlePagar() {
-    const montoTotal = (parseFloat(monto)||0) + totalImp;
+    const montoTotal = montoPagado + totalImp;
     onSave({
       id: Date.now(), tipo:"pagoTarjeta",
       amount: montoTotal,
@@ -769,7 +839,10 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
       cardId: card.id, cardName: card.name,
       resumenKey: resumen,
       impuestos,
-      itemIds: items.map(i=>i.id),
+      items: items,
+      esParcial,
+      totalResumen: total,
+      autoDebito,
       debitada: true,
     });
     onClose();
@@ -789,29 +862,43 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
         </div>
 
         {/* Items summary */}
-        <button onClick={() => setShowItems(v=>!v)} style={{ width:"100%", background:COLORS.surface2, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer", marginBottom:14 }}>
-          <span style={{ color:COLORS.textSecondary, fontSize:13 }}>{items.length} ítems en este resumen</span>
+        <button onClick={() => setShowItems(v=>!v)} style={{ width:"100%", background:COLORS.surface2, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer", marginBottom: showItems ? 0 : 14, borderRadius: showItems ? "10px 10px 0 0" : 10 }}>
+          <span style={{ color:COLORS.textSecondary, fontSize:13 }}>{items.length} ítems · {showItems ? "▲" : "▼"}</span>
           <span style={{ color:COLORS.green, fontFamily:"monospace", fontWeight:700 }}>{fmt(total)}</span>
         </button>
         {showItems && (
-          <div style={{ background:COLORS.bg, borderRadius:10, marginBottom:14, overflow:"hidden" }}>
-            {items.map((item,i) => (
-              <div key={item.id} onClick={() => setEditingItem(item)} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", borderBottom: i<items.length-1?"1px solid "+COLORS.border:"none", cursor:"pointer" }}>
-                <div>
-                  <div style={{ color:COLORS.textPrimary, fontSize:13 }}>{item.category}</div>
-                  {item.cuotaNum && <div style={{ color:COLORS.textMuted, fontSize:11 }}>Cuota {item.cuotaNum}/{item.cuotaTotal}</div>}
-                  {item.description && <div style={{ color:COLORS.textMuted, fontSize:11 }}>{item.description}</div>}
+          <div style={{ background:COLORS.bg, borderRadius:"0 0 10px 10px", marginBottom:14, overflow:"hidden" }}>
+            {items.map((item, i) => {
+              const isGasto = item.tipo==="gasto";
+              return (
+                <div key={item.id} style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"10px 14px", borderBottom: i<items.length-1?"1px solid "+COLORS.border:"none" }}>
+                  <div style={{ width:34, height:34, borderRadius:"50%", background:"#444", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>
+                    {item.categoryIcon||"📦"}
+                  </div>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <div style={{ color:"#ccc", fontWeight:600, fontSize:13 }}>{item.category}</div>
+                    <div style={{ color:COLORS.textSecondary, fontSize:11 }}>
+                      {item.account||""}{item.time ? " · "+item.time : ""}
+                      {item.description ? " · "+item.description : ""}
+                    </div>
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", flexShrink:0 }}>
+                    <div style={{ color:"#aaa", fontFamily:"monospace", fontWeight:700, fontSize:13 }}>-{fmt(item.amount)}</div>
+                    {item.cuotaNum && <div style={{ color:COLORS.textMuted, fontSize:10 }}>Cuota {item.cuotaNum}/{item.cuotaTotal}</div>}
+                  </div>
                 </div>
-                <div style={{ color:"#aaa", fontFamily:"monospace", fontSize:13 }}>{fmt(item.amount)}</div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
         <div style={{ marginBottom:14 }}>
           <label style={labelStyle}>MONTO A PAGAR</label>
           <input value={monto} onChange={e=>setMonto(e.target.value)} type="number" style={{ ...fieldStyle, fontFamily:"monospace", fontWeight:700, fontSize:16, color:COLORS.red }} />
-          <div style={{ fontSize:11, color:COLORS.textMuted, marginTop:4 }}>Total resumen: {fmt(total)}</div>
+          <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+            <span style={{ fontSize:11, color:COLORS.textMuted }}>Total resumen: {fmt(total)}</span>
+            {esParcial && <span style={{ fontSize:11, color:"#f39c12", fontWeight:600 }}>Pago parcial</span>}
+          </div>
         </div>
 
         <div style={{ marginBottom:14 }}>
@@ -822,7 +909,7 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
           </button>
         </div>
 
-        <div style={{ marginBottom:14 }}>
+        <div style={{ marginBottom:20 }}>
           <label style={labelStyle}>IMPUESTOS</label>
           {impuestos.map((imp,i) => (
             <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:COLORS.bg, borderRadius:8, marginBottom:6 }}>
@@ -842,7 +929,7 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
         </div>
 
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
-          <label style={{ ...labelStyle, marginBottom:0 }}>DÉBITO AUTOMÁTICO</label>
+          <label style={{ fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em" }}>DÉBITO AUTOMÁTICO</label>
           <button onClick={() => setAutoDebito(v=>!v)}
             style={{ background: autoDebito ? COLORS.green : COLORS.surface2, border:"1px solid "+(autoDebito?COLORS.green:COLORS.border), borderRadius:20, padding:"4px 14px", color:"white", fontSize:12, fontWeight:600, cursor:"pointer" }}>
             {autoDebito ? "Sí" : "No"}
@@ -851,7 +938,7 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
 
         <button onClick={handlePagar} disabled={!account}
           style={{ width:"100%", background: account ? COLORS.red : COLORS.border, border:"none", borderRadius:12, padding:"14px 0", color:"white", fontSize:16, fontWeight:700, cursor: account ? "pointer" : "default" }}>
-          Pagar {fmt((parseFloat(monto)||0) + totalImp)}
+          Pagar {fmt(montoPagado + totalImp)}{esParcial ? " (parcial)" : ""}
         </button>
       </div>
       {showAccPicker && <AccountPicker accounts={accounts} selected={account} onSelect={setAccount} onClose={() => setShowAccPicker(false)} />}
@@ -884,8 +971,9 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
       if (today < cierreDate) return; // not yet closed, don't show
       const venc = getVencimientoDate(key, card.vencimiento||20);
       const total = items.reduce((s,m) => s+m.amount, 0);
-      const yaPagado = movimientos.some(m => m.tipo==="pagoTarjeta" && m.cardId===card.id && m.resumenKey===key);
-      resumenes.push({ card, resumenKey:key, items, total, vencimiento:venc, pagado:yaPagado });
+      const yaPagado = movimientos.find(m => m.tipo==="pagoTarjeta" && m.cardId===card.id && m.resumenKey===key);
+      const pagadoParcial = !!(yaPagado && yaPagado.esParcial);
+      resumenes.push({ card, resumenKey:key, items, total, vencimiento:venc, pagado:!!(yaPagado && !yaPagado.esParcial), pagadoParcial, pagoPago:yaPagado||null });
     });
   });
   resumenes.sort((a,b) => new Date(a.vencimiento)-new Date(b.vencimiento));
@@ -906,24 +994,37 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
           {resumenes.map((r,i) => {
             const vd = r.vencimiento;
             const vencStr = vd.getDate()+"/"+(vd.getMonth()+1)+"/"+vd.getFullYear();
+            const pagado = r.pagado && !r.pagadoParcial;
+            const parcial = r.pagadoParcial;
+            const pagado_monto = r.pagoPago ? r.pagoPago.amount : 0;
+            const restante = r.total - (r.pagoPago ? (r.pagoPago.amount) : 0);
+            const borderColor = pagado ? COLORS.border : parcial ? "#f39c12" : COLORS.red;
             return (
-              <div key={i} style={{ background: r.pagado ? COLORS.surface : COLORS.surface, border:"1px solid "+(r.pagado ? COLORS.border : COLORS.red), borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
+              <div key={i} style={{ background:COLORS.surface, border:"1px solid "+borderColor, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:8 }}>
                   <div>
                     <div style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:15 }}>{r.card.name}</div>
                     <div style={{ color:COLORS.textSecondary, fontSize:12 }}>Resumen {r.resumenKey} · Vence {vencStr}</div>
                   </div>
-                  <div style={{ color: r.pagado ? COLORS.green : COLORS.redSoft, fontFamily:"monospace", fontWeight:700, fontSize:16 }}>{fmt(r.total)}</div>
+                  <div style={{ textAlign:"right" }}>
+                    <div style={{ color: pagado ? COLORS.green : COLORS.redSoft, fontFamily:"monospace", fontWeight:700, fontSize:16 }}>{fmt(r.total)}</div>
+                    {parcial && <div style={{ color:"#f39c12", fontSize:11, fontWeight:600 }}>Resta {fmt(restante)}</div>}
+                  </div>
                 </div>
                 <div style={{ fontSize:12, color:COLORS.textMuted, marginBottom:10 }}>{r.items.length} ítems</div>
-                {!r.pagado && (
+                {pagado && (
+                  <div style={{ textAlign:"center", color:COLORS.green, fontSize:13, fontWeight:600 }}>✓ Pagado</div>
+                )}
+                {parcial && (
+                  <div style={{ marginBottom:8, textAlign:"center" }}>
+                    <span style={{ color:"#f39c12", fontSize:13, fontWeight:600 }}>Pago parcial · {fmt(pagado_monto)} pagado</span>
+                  </div>
+                )}
+                {(!pagado) && (
                   <button onClick={() => setPagando(r)}
                     style={{ width:"100%", background:COLORS.red, border:"none", borderRadius:8, padding:"10px 0", color:"white", fontWeight:700, fontSize:14, cursor:"pointer" }}>
-                    Pagar resumen
+                    {parcial ? "Pagar restante" : "Pagar resumen"}
                   </button>
-                )}
-                {r.pagado && (
-                  <div style={{ textAlign:"center", color:COLORS.green, fontSize:13, fontWeight:600 }}>✓ Pagado</div>
                 )}
               </div>
             );
