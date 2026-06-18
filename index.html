@@ -619,14 +619,16 @@ function getVencimientoDate(resumenKey, vencimientoDia) {
 }
 
 // MOVEMENT ITEM
-function MovimientoItem({ mov, onTap, accounts }) {
+function MovimientoItem({ mov, onTap, accounts, viewFromAccountId }) {
   const isGasto = mov.tipo==="gasto";
   const isTransferencia = mov.tipo==="transferencia";
   const isPagoTarjeta = mov.tipo==="pagoTarjeta";
   const acc = accounts ? accounts.find(a=>a.id===mov.accountId) : null;
   const isTarjeta = acc && acc.type==="credito" && isGasto;
-  const bgColor = isPagoTarjeta ? COLORS.red : isTransferencia ? COLORS.blue : isGasto ? (isTarjeta ? "#444" : COLORS.red) : COLORS.green;
-  const amountColor = isPagoTarjeta ? COLORS.redSoft : isTransferencia ? COLORS.blue : isGasto ? (isTarjeta ? "#aaa" : COLORS.redSoft) : COLORS.green;
+  // When viewing a pagoTarjeta from the card account itself, it's money coming IN (reduces debt)
+  const pagoVistoDesdeCard = isPagoTarjeta && viewFromAccountId != null && mov.cardId === viewFromAccountId;
+  const bgColor = isPagoTarjeta ? (pagoVistoDesdeCard ? COLORS.green : COLORS.red) : isTransferencia ? COLORS.blue : isGasto ? (isTarjeta ? "#444" : COLORS.red) : COLORS.green;
+  const amountColor = isPagoTarjeta ? (pagoVistoDesdeCard ? COLORS.green : COLORS.redSoft) : isTransferencia ? COLORS.blue : isGasto ? (isTarjeta ? "#aaa" : COLORS.redSoft) : COLORS.green;
   return (
     <div onClick={() => onTap(mov)} style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"14px 0", borderBottom:"1px solid "+COLORS.border, cursor:"pointer" }}>
       <div style={{ width:42, height:42, borderRadius:"50%", background:bgColor, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0, marginTop:2 }}>
@@ -658,7 +660,7 @@ function MovimientoItem({ mov, onTap, accounts }) {
       </div>
       <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", flexShrink:0, marginTop:2 }}>
         <div style={{ color:amountColor, fontFamily:"monospace", fontWeight:700, fontSize:15 }}>
-          {isPagoTarjeta ? "-" : isTransferencia ? "" : (isGasto ? "-" : "+")}{fmt(mov.amount)}
+          {isPagoTarjeta ? (pagoVistoDesdeCard ? "+" : "-") : isTransferencia ? "" : (isGasto ? "-" : "+")}{fmt(mov.amount)}
         </div>
         {mov.cuotaNum ? <div style={{ color:COLORS.textMuted, fontSize:11, marginTop:2 }}>Cuota {mov.cuotaNum}/{mov.cuotaTotal}</div> : null}
       </div>
@@ -682,7 +684,14 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
   const [confirmDel, setConfirmDel] = useState(false);
   const [confirmEdit, setConfirmEdit] = useState(false);
   const totalImp = impuestos.reduce((s,i)=>s+i.monto,0);
-  const esParcial = (parseFloat(monto)||0) < totalResumen;
+  const montoBaseEditado = parseFloat(monto)||0;
+  const otrosPagosPreview = movimientos.filter(m => m.tipo==="pagoTarjeta" && m.cardId===mov.cardId && m.resumenKey===mov.resumenKey && m.id!==mov.id);
+  const otrosAcumuladoPreview = otrosPagosPreview.reduce((s,p) => {
+    const base = p.montoBase != null ? p.montoBase : (p.amount - (p.impuestos||[]).reduce((s2,i)=>s2+i.monto,0));
+    return s + base;
+  }, 0);
+  const acumuladoPreview = otrosAcumuladoPreview + montoBaseEditado;
+  const esParcialPreview = acumuladoPreview < totalResumen;
 
   const fieldStyle = { width:"100%", boxSizing:"border-box", background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textPrimary, fontSize:14, outline:"none" };
   const labelStyle = { fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em", marginBottom:6, display:"block" };
@@ -694,15 +703,29 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
   }
 
   function handleSave() {
-    const montoTotal = (parseFloat(monto)||0) + totalImp;
+    const montoBase = parseFloat(monto)||0;
+    const montoTotal = montoBase + totalImp;
+    // Recalculate exceso against total resumen, accounting for OTHER payments on same resumen
+    const otrosPagos = movimientos.filter(m => m.tipo==="pagoTarjeta" && m.cardId===mov.cardId && m.resumenKey===mov.resumenKey && m.id!==mov.id);
+    const otrosAcumulado = otrosPagos.reduce((s,p) => {
+      const base = p.montoBase != null ? p.montoBase : (p.amount - (p.impuestos||[]).reduce((s2,i)=>s2+i.monto,0));
+      return s + base;
+    }, 0);
+    const acumuladoTotal = otrosAcumulado + montoBase;
+    const nuevoExceso = Math.max(0, acumuladoTotal - totalResumen);
+    const nuevoEsParcial = acumuladoTotal < totalResumen;
     onSave({
       ...mov,
       amount: montoTotal,
       accountId: account ? account.id : null,
       account: account ? account.name : "Sin cuenta",
-      impuestos, autoDebito, esParcial,
+      impuestos, autoDebito,
+      esParcial: nuevoEsParcial,
+      montoBase,
+      exceso: nuevoExceso,
       prevAccountId: mov.accountId,
       prevAmount: mov.amount,
+      prevExceso: mov.exceso||0,
     });
     onClose();
   }
@@ -788,7 +811,7 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
                 <label style={labelStyle}>MONTO PAGADO</label>
                 <input value={monto} onChange={e=>setMonto(e.target.value)} type="number"
                   style={{ ...fieldStyle, fontFamily:"monospace", fontWeight:700, fontSize:16, color:COLORS.red }} />
-                {esParcial && <div style={{ fontSize:11, color:"#f39c12", marginTop:4 }}>Pago parcial · Total resumen: {fmt(totalResumen)}</div>}
+                {esParcialPreview && <div style={{ fontSize:11, color:"#f39c12", marginTop:4 }}>Pago parcial · Total resumen: {fmt(totalResumen)}</div>}
               </div>
               <div style={{ marginBottom:14 }}>
                 <label style={labelStyle}>CUENTA</label>
@@ -882,7 +905,12 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
     return d.getMonth()===selectedDate.getMonth() && d.getFullYear()===selectedDate.getFullYear();
   });
   const ingresos = filtered.filter(m=>m.tipo==="ingreso").reduce((s,m)=>s+m.amount,0);
-  const gastos   = filtered.filter(m=>m.tipo==="gasto").reduce((s,m)=>s+m.amount,0);
+  const gastos   = filtered.filter(m=>{
+    if (m.tipo!=="gasto") return false;
+    const acc = accounts.find(a=>a.id===m.accountId);
+    if (acc && acc.type==="credito") return false; // exclude tarjeta gastos until resumen paid
+    return true;
+  }).reduce((s,m)=>s+m.amount,0);
   const balance  = ingresos-gastos;
   const byDay = {};
   filtered.forEach(m => { const d=new Date(m.date); const k=d.toDateString(); if(!byDay[k]) byDay[k]={date:d,items:[]}; byDay[k].items.push(m); });
@@ -916,7 +944,15 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
         const d = group.date;
         const isToday = new Date().toDateString()===key;
         const dayLabel = isToday?"HOY":d.getDate()+" "+MONTHS_SHORT[d.getMonth()].toUpperCase()+" "+d.getFullYear();
-        const dayTotal = group.items.reduce((s,m)=>m.tipo==="gasto"?s-m.amount:m.tipo==="ingreso"?s+m.amount:s,0);
+        const dayTotal = group.items.reduce((s,m) => {
+          if (m.tipo==="gasto") {
+            const acc = accounts.find(a=>a.id===m.accountId);
+            if (acc && acc.type==="credito") return s; // exclude tarjeta gastos
+            return s - m.amount;
+          }
+          if (m.tipo==="ingreso") return s + m.amount;
+          return s; // transferencia, pagoTarjeta: excluded
+        }, 0);
         return (
           <div key={key} style={{ marginBottom:8 }}>
             <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0 4px", borderBottom:"1px solid "+COLORS.border }}>
@@ -951,9 +987,10 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
 }
 
 // PAGO TARJETA FORM
-function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
+function FormPagoTarjeta({ resumen, card, items, accounts, yaPagado, onClose, onSave }) {
   const total = items.reduce((s,m) => s+m.amount, 0);
-  const [monto, setMonto] = useState(String(total));
+  const restanteOriginal = total - (yaPagado||0);
+  const [monto, setMonto] = useState(String(restanteOriginal));
   const [account, setAccount] = useState(null);
   const [showAccPicker, setShowAccPicker] = useState(false);
   const [impuestos, setImpuestos] = useState([]);
@@ -964,7 +1001,9 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
   const [selectedItem, setSelectedItem] = useState(null);
   const totalImp = impuestos.reduce((s,i) => s+i.monto, 0);
   const montoPagado = parseFloat(monto)||0;
-  const esParcial = montoPagado < total; // compare base amount without tax
+  const acumuladoConEste = (yaPagado||0) + montoPagado;
+  const esParcial = acumuladoConEste < total; // compare base amounts without tax
+  const exceso = Math.max(0, acumuladoConEste - total);
   const fieldStyle = { width:"100%", boxSizing:"border-box", background:COLORS.bg, border:"1px solid "+COLORS.border, borderRadius:10, padding:"12px 14px", color:COLORS.textPrimary, fontSize:14, outline:"none" };
   const labelStyle = { fontSize:12, color:COLORS.textMuted, fontWeight:600, letterSpacing:"0.06em", marginBottom:6, display:"block" };
 
@@ -988,6 +1027,8 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
       impuestos,
       items: items,
       esParcial,
+      montoBase: montoPagado,
+      exceso,
       totalResumen: total,
       autoDebito,
       debitada: true,
@@ -1046,8 +1087,11 @@ function FormPagoTarjeta({ resumen, card, items, accounts, onClose, onSave }) {
           <label style={labelStyle}>MONTO A PAGAR</label>
           <input value={monto} onChange={e=>setMonto(e.target.value)} type="number" style={{ ...fieldStyle, fontFamily:"monospace", fontWeight:700, fontSize:16, color:COLORS.red }} />
           <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
-            <span style={{ fontSize:11, color:COLORS.textMuted }}>Total resumen: {fmt(total)}</span>
-            {esParcial && <span style={{ fontSize:11, color:"#f39c12", fontWeight:600 }}>Pago parcial</span>}
+            <span style={{ fontSize:11, color:COLORS.textMuted }}>
+              Total resumen: {fmt(total)}{yaPagado>0 ? " · Ya pagado: "+fmt(yaPagado) : ""}
+            </span>
+            {esParcial && <span style={{ fontSize:11, color:"#f39c12", fontWeight:600 }}>Parcial</span>}
+            {exceso > 0 && <span style={{ fontSize:11, color:COLORS.green, fontWeight:600 }}>Saldo a favor +{fmt(exceso)}</span>}
           </div>
         </div>
 
@@ -1143,9 +1187,15 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
       if (today < cierreDate) return; // not yet closed, don't show
       const venc = getVencimientoDate(key, card.vencimiento||20);
       const total = items.reduce((s,m) => s+m.amount, 0);
-      const yaPagado = movimientos.find(m => m.tipo==="pagoTarjeta" && m.cardId===card.id && m.resumenKey===key);
-      const pagadoParcial = !!(yaPagado && yaPagado.esParcial);
-      resumenes.push({ card, resumenKey:key, items, total, vencimiento:venc, pagado:!!(yaPagado && !yaPagado.esParcial), pagadoParcial, pagoPago:yaPagado||null });
+      // Sum ALL payments made for this resumen (base amount without impuestos)
+      const pagosDeEsteResumen = movimientos.filter(m => m.tipo==="pagoTarjeta" && m.cardId===card.id && m.resumenKey===key);
+      const yaPagadoAcumulado = pagosDeEsteResumen.reduce((s,p) => {
+        const base = p.montoBase != null ? p.montoBase : (p.amount - (p.impuestos||[]).reduce((s2,i)=>s2+i.monto,0));
+        return s + base;
+      }, 0);
+      const pagadoCompleto = yaPagadoAcumulado >= total;
+      const pagadoParcial = yaPagadoAcumulado > 0 && !pagadoCompleto;
+      resumenes.push({ card, resumenKey:key, items, total, vencimiento:venc, pagado:pagadoCompleto, pagadoParcial, yaPagadoAcumulado, pagos:pagosDeEsteResumen });
     });
   });
   resumenes.sort((a,b) => new Date(a.vencimiento)-new Date(b.vencimiento));
@@ -1166,10 +1216,9 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
           {resumenes.map((r,i) => {
             const vd = r.vencimiento;
             const vencStr = vd.getDate()+"/"+(vd.getMonth()+1)+"/"+vd.getFullYear();
-            const pagado = r.pagado && !r.pagadoParcial;
+            const pagado = r.pagado;
             const parcial = r.pagadoParcial;
-            const pagado_monto = r.pagoPago ? r.pagoPago.amount : 0;
-            const restante = r.total - (r.pagoPago ? (r.pagoPago.amount) : 0);
+            const restante = r.total - r.yaPagadoAcumulado;
             const borderColor = pagado ? COLORS.border : parcial ? "#f39c12" : COLORS.red;
             return (
               <div key={i} style={{ background:COLORS.surface, border:"1px solid "+borderColor, borderRadius:12, padding:"14px 16px", marginBottom:12 }}>
@@ -1189,7 +1238,7 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
                 )}
                 {parcial && (
                   <div style={{ marginBottom:8, textAlign:"center" }}>
-                    <span style={{ color:"#f39c12", fontSize:13, fontWeight:600 }}>Pago parcial · {fmt(pagado_monto)} pagado</span>
+                    <span style={{ color:"#f39c12", fontSize:13, fontWeight:600 }}>Pago parcial · {fmt(r.yaPagadoAcumulado)} pagado</span>
                   </div>
                 )}
                 {(!pagado) && (
@@ -1209,6 +1258,7 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
           card={pagando.card}
           items={pagando.items}
           accounts={accounts}
+          yaPagado={pagando.yaPagadoAcumulado}
           onClose={() => setPagando(null)}
           onSave={(pago) => { onPagoTarjeta(pago); setPagando(null); }}
         />
@@ -1660,7 +1710,7 @@ function FormCuenta({ existing, onClose, onSave, onDelete }) {
 function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const allAccMovs = movimientos.filter(m => m.accountId===acc.id || m.accountDestId===acc.id)
+  const allAccMovs = movimientos.filter(m => m.accountId===acc.id || m.accountDestId===acc.id || m.cardId===acc.id)
     .sort((a,b) => new Date(b.date)-new Date(a.date));
 
   const filtered = allAccMovs.filter(m => {
@@ -1726,43 +1776,7 @@ function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
             <div style={{ color:COLORS.textSecondary, fontSize:16, fontWeight:500 }}>Sin movimientos</div>
           </div>
         ) : (
-          filtered.map(m => {
-            const d = new Date(m.date);
-            const isGasto = m.tipo==="gasto";
-            const isTransferencia = m.tipo==="transferencia";
-            const bgColor = isTransferencia ? COLORS.blue : isGasto ? COLORS.red : COLORS.green;
-            const amountColor = isTransferencia ? COLORS.blue : isGasto ? COLORS.redSoft : COLORS.green;
-            const isIncoming = isTransferencia && m.accountDestId===acc.id;
-            return (
-              <div key={m.id} style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"14px 0", borderBottom:"1px solid "+COLORS.border }}>
-                <div style={{ width:42, height:42, borderRadius:"50%", background:bgColor, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0, marginTop:2 }}>
-                  {isTransferencia ? "⇄" : (m.categoryIcon||"📦")}
-                </div>
-                <div style={{ flex:1, minWidth:0 }}>
-                  {isTransferencia ? (
-                    <div style={{ display:"flex", alignItems:"baseline", gap:4, marginBottom:3, flexWrap:"wrap" }}>
-                      <span style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:14 }}>De</span>
-                      <span style={{ color:COLORS.textSecondary, fontSize:13 }}>{m.account||"Sin cuenta"}</span>
-                      <span style={{ color:COLORS.textPrimary, fontWeight:700, fontSize:14 }}>A</span>
-                      <span style={{ color:COLORS.textSecondary, fontSize:13 }}>{m.accountDest||"Sin cuenta"}</span>
-                    </div>
-                  ) : (
-                    <div style={{ display:"flex", alignItems:"baseline", gap:8, marginBottom:3 }}>
-                      <span style={{ color:COLORS.textPrimary, fontWeight:600, fontSize:14 }}>{m.category}</span>
-                      <span style={{ color:COLORS.textSecondary, fontSize:12 }}>{m.account||"Sin cuenta"}</span>
-                    </div>
-                  )}
-                  <div style={{ color:COLORS.textSecondary, fontSize:12 }}>
-                    {d.getDate()}/{d.getMonth()+1}/{d.getFullYear()} {m.time||""}
-                    {m.description ? " · "+m.description : ""}
-                  </div>
-                </div>
-                <div style={{ color:amountColor, fontFamily:"monospace", fontWeight:700, fontSize:15, flexShrink:0, marginTop:2 }}>
-                  {isTransferencia ? (isIncoming ? "+" : "-") : (isGasto ? "-" : "+")}{fmt(m.amount)}
-                </div>
-              </div>
-            );
-          })
+          filtered.map(m => <MovimientoItem key={m.id} mov={m} onTap={()=>{}} accounts={[acc]} viewFromAccountId={acc.id} />)
         )}
       </div>
     </div>
@@ -2036,6 +2050,10 @@ function FinanzApp() {
         let bal = a.balance;
         if (a.id===first.prevAccountId) bal += first.prevAmount;
         if (a.id===first.accountId) bal -= first.amount;
+        if (a.id===first.cardId) {
+          if (first.prevExceso > 0) bal -= first.prevExceso; // reverse old saldo a favor
+          if (first.exceso > 0) bal += first.exceso; // apply new saldo a favor
+        }
         return {...a, balance:bal};
       }));
       return;
@@ -2083,11 +2101,7 @@ function FinanzApp() {
       setAccounts(prev => prev.map(a => {
         let bal = a.balance;
         if (mov.accountId && a.id===mov.accountId) bal += mov.amount;
-        if (mov.totalResumen != null && a.id===mov.cardId) {
-          const montoSinImpuestos = mov.amount - (mov.impuestos||[]).reduce((s,i)=>s+i.monto,0);
-          const exceso = montoSinImpuestos - mov.totalResumen;
-          if (exceso > 0) bal -= exceso;
-        }
+        if (a.id===mov.cardId && mov.exceso > 0) bal -= mov.exceso;
         return {...a, balance:bal};
       }));
       setMovimientos(p => p.filter(m => m.id!==id));
@@ -2115,16 +2129,11 @@ function FinanzApp() {
   function handlePagoTarjeta(pago) {
     // Add pago movimiento
     setMovimientos(prev => [pago, ...prev]);
-    // Deduct from paying account
+    // Deduct from paying account, credit excess (if any) to card account
     setAccounts(prev => prev.map(a => {
       let bal = a.balance;
       if (pago.accountId && a.id===pago.accountId) bal -= pago.amount;
-      // If overpaid (montoPagado without tax > totalResumen), credit the excess to the card account
-      if (a.id===pago.cardId && pago.totalResumen != null) {
-        const montoSinImpuestos = pago.amount - (pago.impuestos||[]).reduce((s,i)=>s+i.monto,0);
-        const exceso = montoSinImpuestos - pago.totalResumen;
-        if (exceso > 0) bal += exceso;
-      }
+      if (a.id===pago.cardId && pago.exceso > 0) bal += pago.exceso;
       return {...a, balance:bal};
     }));
   }
