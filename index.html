@@ -726,6 +726,7 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
       prevAccountId: mov.accountId,
       prevAmount: mov.amount,
       prevExceso: mov.exceso||0,
+      prevMontoBase: mov.montoBase != null ? mov.montoBase : (mov.amount - (mov.impuestos||[]).reduce((s,i)=>s+i.monto,0)),
     });
     onClose();
   }
@@ -744,26 +745,30 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
         </div>
 
         <div style={{ overflowY:"auto", padding:"0 20px 24px", flex:1 }}>
-          {/* Amounts summary - Total resumen → Pagado → Restante */}
+          {/* Amounts summary - Gastos tarjeta -> Impuestos -> Total -> Pagado -> Restante */}
           <div style={{ background:COLORS.bg, borderRadius:10, padding:"12px 14px", marginBottom:14 }}>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
-              <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Total resumen</span>
+              <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Gastos tarjeta</span>
               <span style={{ color:COLORS.textPrimary, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(totalResumen)}</span>
+            </div>
+            {mov.impuestos && mov.impuestos.length>0 && (
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6 }}>
+                <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Impuestos</span>
+                <span style={{ color:COLORS.textPrimary, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(mov.impuestos.reduce((s,i)=>s+i.monto,0))}</span>
+              </div>
+            )}
+            <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6, paddingTop:6, borderTop:"1px solid "+COLORS.border }}>
+              <span style={{ color:COLORS.textSecondary, fontSize:13, fontWeight:600 }}>Total</span>
+              <span style={{ color:COLORS.textPrimary, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(mov.amount)}</span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom: mov.esParcial ? 6 : 0 }}>
               <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Pagado</span>
-              <span style={{ color:COLORS.redSoft, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>-{fmt(mov.amount)}</span>
+              <span style={{ color:COLORS.redSoft, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>-{fmt(mov.montoBase != null ? mov.montoBase : mov.amount)}</span>
             </div>
             {mov.esParcial && (
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom: (mov.impuestos && mov.impuestos.length>0) ? 6 : 0 }}>
+              <div style={{ display:"flex", justifyContent:"space-between" }}>
                 <span style={{ color:"#f39c12", fontSize:13, fontWeight:600 }}>Restante</span>
-                <span style={{ color:"#f39c12", fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(totalResumen - mov.amount)}</span>
-              </div>
-            )}
-            {mov.impuestos && mov.impuestos.length>0 && (
-              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6, paddingTop:6, borderTop:"1px solid "+COLORS.border }}>
-                <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Impuestos</span>
-                <span style={{ color:COLORS.textPrimary, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(mov.impuestos.reduce((s,i)=>s+i.monto,0))}</span>
+                <span style={{ color:"#f39c12", fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(totalResumen - (mov.montoBase != null ? mov.montoBase : mov.amount))}</span>
               </div>
             )}
             {mov.impuestos && mov.impuestos.map((imp,i) => (
@@ -1195,7 +1200,8 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
       }, 0);
       const pagadoCompleto = yaPagadoAcumulado >= total;
       const pagadoParcial = yaPagadoAcumulado > 0 && !pagadoCompleto;
-      resumenes.push({ card, resumenKey:key, items, total, vencimiento:venc, pagado:pagadoCompleto, pagadoParcial, yaPagadoAcumulado, pagos:pagosDeEsteResumen });
+      const impuestosAcumulados = pagosDeEsteResumen.reduce((s,p) => s + (p.impuestos||[]).reduce((s2,i)=>s2+i.monto,0), 0);
+      resumenes.push({ card, resumenKey:key, items, total, vencimiento:venc, pagado:pagadoCompleto, pagadoParcial, yaPagadoAcumulado, impuestosAcumulados, pagos:pagosDeEsteResumen });
     });
   });
   resumenes.sort((a,b) => new Date(a.vencimiento)-new Date(b.vencimiento));
@@ -1238,7 +1244,7 @@ function TabPeriodicos({ selectedDate, onDateChange, movimientos, accounts, onPa
                 )}
                 {parcial && (
                   <div style={{ marginBottom:8, textAlign:"center" }}>
-                    <span style={{ color:"#f39c12", fontSize:13, fontWeight:600 }}>Pago parcial · {fmt(r.yaPagadoAcumulado)} pagado</span>
+                    <span style={{ color:"#f39c12", fontSize:13, fontWeight:600 }}>Pago parcial · {fmt(r.yaPagadoAcumulado)} pagado{r.impuestosAcumulados>0 ? " + "+fmt(r.impuestosAcumulados)+" imp." : ""}</span>
                   </div>
                 )}
                 {(!pagado) && (
@@ -1707,8 +1713,9 @@ function FormCuenta({ existing, onClose, onSave, onDelete }) {
 }
 
 // ACCOUNT DETAIL VIEW
-function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
+function CuentaDetalle({ acc, movimientos, accounts, onClose, onEdit, onEditMov, onDeleteMov }) {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [detailMov, setDetailMov] = useState(null);
 
   const allAccMovs = movimientos.filter(m => m.accountId===acc.id || m.accountDestId===acc.id || m.cardId===acc.id)
     .sort((a,b) => new Date(b.date)-new Date(a.date));
@@ -1721,6 +1728,10 @@ function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
   const ingresos = filtered.filter(m => m.tipo==="ingreso").reduce((s,m) => s+m.amount, 0);
   const gastos   = filtered.filter(m => m.tipo==="gasto").reduce((s,m) => s+m.amount, 0);
   const balance  = ingresos - gastos;
+
+  const byDay = {};
+  filtered.forEach(m => { const d=new Date(m.date); const k=d.toDateString(); if(!byDay[k]) byDay[k]={date:d,items:[]}; byDay[k].items.push(m); });
+  const dayKeys = Object.keys(byDay).sort((a,b)=>new Date(b)-new Date(a));
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:250, background:COLORS.bg, display:"flex", justifyContent:"center" }}>
@@ -1768,23 +1779,64 @@ function CuentaDetalle({ acc, movimientos, onClose, onEdit }) {
         </div>
       </div>
 
-      {/* Movements */}
+      {/* Movements grouped by day */}
       <div style={{ flex:1, overflowY:"auto", padding:"0 16px" }}>
-        {filtered.length===0 ? (
+        {dayKeys.length===0 ? (
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", padding:"60px 20px", textAlign:"center" }}>
             <div style={{ fontSize:48, marginBottom:12 }}>💸</div>
             <div style={{ color:COLORS.textSecondary, fontSize:16, fontWeight:500 }}>Sin movimientos</div>
           </div>
-        ) : (
-          filtered.map(m => <MovimientoItem key={m.id} mov={m} onTap={()=>{}} accounts={[acc]} viewFromAccountId={acc.id} />)
-        )}
+        ) : dayKeys.map(key => {
+          const group = byDay[key];
+          const d = group.date;
+          const isToday = new Date().toDateString()===key;
+          const dayLabel = isToday?"HOY":d.getDate()+" "+MONTHS_SHORT[d.getMonth()].toUpperCase()+" "+d.getFullYear();
+          const dayTotal = group.items.reduce((s,m) => {
+            if (m.tipo==="gasto") {
+              const a = accounts.find(x=>x.id===m.accountId);
+              if (a && a.type==="credito") return s;
+              return s - m.amount;
+            }
+            if (m.tipo==="ingreso") return s + m.amount;
+            return s;
+          }, 0);
+          return (
+            <div key={key} style={{ marginBottom:8 }}>
+              <div style={{ display:"flex", justifyContent:"space-between", padding:"8px 0 4px", borderBottom:"1px solid "+COLORS.border }}>
+                <span style={{ fontSize:12, fontWeight:700, color:COLORS.textMuted, letterSpacing:"0.05em" }}>{dayLabel}</span>
+                <span style={{ fontSize:12, fontWeight:700, color:dayTotal<0?COLORS.redSoft:COLORS.green }}>{dayTotal<0?"-":"+"}{fmt(Math.abs(dayTotal))}</span>
+              </div>
+              {group.items.map(m => <MovimientoItem key={m.id} mov={m} onTap={setDetailMov} accounts={accounts} viewFromAccountId={acc.id} />)}
+            </div>
+          );
+        })}
       </div>
-    </div>
+      </div>
+      {detailMov && detailMov.tipo==="pagoTarjeta" && (
+        <PagoTarjetaDetail
+          mov={detailMov}
+          movimientos={movimientos}
+          accounts={accounts}
+          onClose={() => setDetailMov(null)}
+          onSave={(updated) => { onEditMov(updated); setDetailMov(null); }}
+          onDelete={(id) => { onDeleteMov(id); setDetailMov(null); }}
+        />
+      )}
+      {detailMov && detailMov.tipo!=="pagoTarjeta" && (
+        <FormMovimiento
+          tipo={detailMov.tipo}
+          existing={detailMov}
+          onClose={() => setDetailMov(null)}
+          onSave={(mov) => { onEditMov(mov); setDetailMov(null); }}
+          onDelete={(id) => { onDeleteMov(id); setDetailMov(null); }}
+          accounts={accounts}
+        />
+      )}
     </div>
   );
 }
 
-function TabCuentas({ accounts, onAddAccount, onEditAccount, onDeleteAccount, movimientos }) {
+function TabCuentas({ accounts, onAddAccount, onEditAccount, onDeleteAccount, movimientos, onEditMov, onDeleteMov }) {
   const [selectedAcc, setSelectedAcc] = useState(null);
   const [editingAcc, setEditingAcc] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -1801,8 +1853,11 @@ function TabCuentas({ accounts, onAddAccount, onEditAccount, onDeleteAccount, mo
         <CuentaDetalle
           acc={acc}
           movimientos={movimientos}
+          accounts={accounts}
           onClose={() => setSelectedAcc(null)}
           onEdit={() => setEditingAcc(acc)}
+          onEditMov={onEditMov}
+          onDeleteMov={onDeleteMov}
         />
         {editingAcc && (
           <FormCuenta
@@ -2044,15 +2099,17 @@ function FinanzApp() {
     const movs = Array.isArray(payload) ? payload : [payload];
     const first = movs[0];
     if (first.tipo==="pagoTarjeta" && first.prevAccountId !== undefined) {
-      // Edit pago tarjeta
+      // Edit pago tarjeta: reverse old effect, apply new
       setMovimientos(p => p.map(m => m.id===first.id ? first : m));
       setAccounts(prev => prev.map(a => {
         let bal = a.balance;
         if (a.id===first.prevAccountId) bal += first.prevAmount;
         if (a.id===first.accountId) bal -= first.amount;
         if (a.id===first.cardId) {
-          if (first.prevExceso > 0) bal -= first.prevExceso; // reverse old saldo a favor
-          if (first.exceso > 0) bal += first.exceso; // apply new saldo a favor
+          const prevMontoBase = first.prevMontoBase != null ? first.prevMontoBase : first.prevAmount;
+          const montoBase = first.montoBase != null ? first.montoBase : first.amount;
+          bal -= prevMontoBase; // reverse old debt reduction
+          bal += montoBase; // apply new debt reduction
         }
         return {...a, balance:bal};
       }));
@@ -2087,8 +2144,7 @@ function FinanzApp() {
             if (a.id===m.accountDestId) bal += m.amount;
           } else if (a.id===m.accountId) {
             bal += m.tipo==="gasto" ? -m.amount : m.amount;
-          }
-        });
+          }        });
         return {...a, balance:bal};
       }));
     }
@@ -2101,7 +2157,10 @@ function FinanzApp() {
       setAccounts(prev => prev.map(a => {
         let bal = a.balance;
         if (mov.accountId && a.id===mov.accountId) bal += mov.amount;
-        if (a.id===mov.cardId && mov.exceso > 0) bal -= mov.exceso;
+        if (a.id===mov.cardId) {
+          const montoBase = mov.montoBase != null ? mov.montoBase : (mov.amount - (mov.impuestos||[]).reduce((s,i)=>s+i.monto,0));
+          bal -= montoBase; // reverse debt reduction (debt goes back up)
+        }
         return {...a, balance:bal};
       }));
       setMovimientos(p => p.filter(m => m.id!==id));
@@ -2129,11 +2188,16 @@ function FinanzApp() {
   function handlePagoTarjeta(pago) {
     // Add pago movimiento
     setMovimientos(prev => [pago, ...prev]);
-    // Deduct from paying account, credit excess (if any) to card account
+    // Deduct total (base + impuestos) from paying account
+    // Credit the base amount (without impuestos) back to the card account, reducing its debt
+    // If overpaid beyond what's owed, the excess (exceso) also gets credited as saldo a favor
     setAccounts(prev => prev.map(a => {
       let bal = a.balance;
       if (pago.accountId && a.id===pago.accountId) bal -= pago.amount;
-      if (a.id===pago.cardId && pago.exceso > 0) bal += pago.exceso;
+      if (a.id===pago.cardId) {
+        const montoBase = pago.montoBase != null ? pago.montoBase : pago.amount;
+        bal += montoBase; // reduces debt (or creates saldo a favor if exceso included within montoBase)
+      }
       return {...a, balance:bal};
     }));
   }
@@ -2169,7 +2233,7 @@ function FinanzApp() {
           {tab==="movimientos" && <TabMovimientos selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} onDelete={handleDelete} onEdit={handleSave} accounts={accounts} />}
           {tab==="periodicos"  && <TabPeriodicos selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} accounts={accounts} onPagoTarjeta={handlePagoTarjeta} onEditMov={handleSave} onDeleteMov={handleDelete} />}
           {tab==="analisis"    && <TabAnalisis    selectedDate={selectedDate} onDateChange={setSelectedDate} movimientos={movimientos} accounts={accounts} />}
-          {tab==="cuentas"     && <TabCuentas accounts={accounts} movimientos={movimientos} onAddAccount={(acc) => setAccounts(p => [...p, acc])} onEditAccount={(acc) => setAccounts(p => p.map(a => a.id===acc.id ? acc : a))} onDeleteAccount={(id) => setAccounts(p => p.filter(a => a.id!==id))} />}
+          {tab==="cuentas"     && <TabCuentas accounts={accounts} movimientos={movimientos} onAddAccount={(acc) => setAccounts(p => [...p, acc])} onEditAccount={(acc) => setAccounts(p => p.map(a => a.id===acc.id ? acc : a))} onDeleteAccount={(id) => setAccounts(p => p.filter(a => a.id!==id))} onEditMov={handleSave} onDeleteMov={handleDelete} />}
         </div>
         <button onClick={() => setShowTypeModal(true)}
           style={{ position:"fixed", bottom:72, right:16, width:56, height:56, borderRadius:"50%", background:COLORS.blue, border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", boxShadow:"0 4px 16px rgba(55,138,221,0.45)", zIndex:100 }}>
