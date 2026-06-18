@@ -759,7 +759,7 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
             )}
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom:6, paddingTop:6, borderTop:"1px solid "+COLORS.border }}>
               <span style={{ color:COLORS.textSecondary, fontSize:13, fontWeight:600 }}>Total</span>
-              <span style={{ color:COLORS.textPrimary, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(mov.amount)}</span>
+              <span style={{ color:COLORS.textPrimary, fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(totalResumen + (mov.impuestos||[]).reduce((s,i)=>s+i.monto,0))}</span>
             </div>
             <div style={{ display:"flex", justifyContent:"space-between", marginBottom: mov.esParcial ? 6 : 0 }}>
               <span style={{ color:COLORS.textSecondary, fontSize:13 }}>Pagado</span>
@@ -771,12 +771,6 @@ function PagoTarjetaDetail({ mov, movimientos, accounts, onClose, onSave, onDele
                 <span style={{ color:"#f39c12", fontFamily:"monospace", fontWeight:700, fontSize:14 }}>{fmt(totalResumen - (mov.montoBase != null ? mov.montoBase : mov.amount))}</span>
               </div>
             )}
-            {mov.impuestos && mov.impuestos.map((imp,i) => (
-              <div key={i} style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
-                <span style={{ color:COLORS.textMuted, fontSize:12 }}>{imp.nombre}</span>
-                <span style={{ color:COLORS.textMuted, fontFamily:"monospace", fontSize:12 }}>{fmt(imp.monto)}</span>
-              </div>
-            ))}
           </div>
 
           {/* Items - same style as MovimientoItem, tappable for readonly detail */}
@@ -910,12 +904,14 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
     return d.getMonth()===selectedDate.getMonth() && d.getFullYear()===selectedDate.getFullYear();
   });
   const ingresos = filtered.filter(m=>m.tipo==="ingreso").reduce((s,m)=>s+m.amount,0);
-  const gastos   = filtered.filter(m=>{
+  const gastosNormales = filtered.filter(m=>{
     if (m.tipo!=="gasto") return false;
     const acc = accounts.find(a=>a.id===m.accountId);
     if (acc && acc.type==="credito") return false; // exclude tarjeta gastos until resumen paid
     return true;
   }).reduce((s,m)=>s+m.amount,0);
+  const pagosTarjetaTotal = filtered.filter(m=>m.tipo==="pagoTarjeta").reduce((s,m)=>s+m.amount,0);
+  const gastos = gastosNormales + pagosTarjetaTotal;
   const balance  = ingresos-gastos;
   const byDay = {};
   filtered.forEach(m => { const d=new Date(m.date); const k=d.toDateString(); if(!byDay[k]) byDay[k]={date:d,items:[]}; byDay[k].items.push(m); });
@@ -956,7 +952,8 @@ function TabMovimientos({ selectedDate, onDateChange, movimientos, onDelete, onE
             return s - m.amount;
           }
           if (m.tipo==="ingreso") return s + m.amount;
-          return s; // transferencia, pagoTarjeta: excluded
+          if (m.tipo==="pagoTarjeta") return s - m.amount; // real money out
+          return s; // transferencia: excluded
         }, 0);
         return (
           <div key={key} style={{ marginBottom:8 }}>
@@ -1089,26 +1086,6 @@ function FormPagoTarjeta({ resumen, card, items, accounts, yaPagado, onClose, on
         )}
 
         <div style={{ marginBottom:14 }}>
-          <label style={labelStyle}>MONTO A PAGAR</label>
-          <input value={monto} onChange={e=>setMonto(e.target.value)} type="number" style={{ ...fieldStyle, fontFamily:"monospace", fontWeight:700, fontSize:16, color:COLORS.red }} />
-          <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
-            <span style={{ fontSize:11, color:COLORS.textMuted }}>
-              Total resumen: {fmt(total)}{yaPagado>0 ? " · Ya pagado: "+fmt(yaPagado) : ""}
-            </span>
-            {esParcial && <span style={{ fontSize:11, color:"#f39c12", fontWeight:600 }}>Parcial</span>}
-            {exceso > 0 && <span style={{ fontSize:11, color:COLORS.green, fontWeight:600 }}>Saldo a favor +{fmt(exceso)}</span>}
-          </div>
-        </div>
-
-        <div style={{ marginBottom:14 }}>
-          <label style={labelStyle}>CUENTA</label>
-          <button onClick={() => setShowAccPicker(true)} style={{ ...fieldStyle, textAlign:"left", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
-            {account ? <span>{ACCOUNT_ICONS[account.type]} {account.name}</span> : <span style={{ color:COLORS.textMuted }}>Seleccionar cuenta</span>}
-            <span style={{ marginLeft:"auto", color:COLORS.textMuted }}>›</span>
-          </button>
-        </div>
-
-        <div style={{ marginBottom:20 }}>
           <label style={labelStyle}>IMPUESTOS</label>
           {impuestos.map((imp,i) => (
             <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:COLORS.bg, borderRadius:8, marginBottom:6 }}>
@@ -1125,6 +1102,26 @@ function FormPagoTarjeta({ resumen, card, items, accounts, yaPagado, onClose, on
             <button onClick={addImpuesto} style={{ background:COLORS.green, border:"none", borderRadius:10, padding:"10px 14px", color:"white", fontWeight:700, cursor:"pointer" }}>+</button>
           </div>
           {totalImp > 0 && <div style={{ fontSize:11, color:COLORS.textMuted, marginTop:4 }}>Total impuestos: {fmt(totalImp)}</div>}
+        </div>
+
+        <div style={{ marginBottom:14 }}>
+          <label style={labelStyle}>MONTO A PAGAR</label>
+          <input value={monto} onChange={e=>setMonto(e.target.value)} type="number" style={{ ...fieldStyle, fontFamily:"monospace", fontWeight:700, fontSize:16, color:COLORS.red }} />
+          <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
+            <span style={{ fontSize:11, color:COLORS.textMuted }}>
+              Total resumen: {fmt(total)}{yaPagado>0 ? " · Ya pagado: "+fmt(yaPagado) : ""}
+            </span>
+            {esParcial && <span style={{ fontSize:11, color:"#f39c12", fontWeight:600 }}>Parcial</span>}
+            {exceso > 0 && <span style={{ fontSize:11, color:COLORS.green, fontWeight:600 }}>Saldo a favor +{fmt(exceso)}</span>}
+          </div>
+        </div>
+
+        <div style={{ marginBottom:20 }}>
+          <label style={labelStyle}>CUENTA</label>
+          <button onClick={() => setShowAccPicker(true)} style={{ ...fieldStyle, textAlign:"left", cursor:"pointer", display:"flex", alignItems:"center", gap:10 }}>
+            {account ? <span>{ACCOUNT_ICONS[account.type]} {account.name}</span> : <span style={{ color:COLORS.textMuted }}>Seleccionar cuenta</span>}
+            <span style={{ marginLeft:"auto", color:COLORS.textMuted }}>›</span>
+          </button>
         </div>
 
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20 }}>
@@ -1725,8 +1722,10 @@ function CuentaDetalle({ acc, movimientos, accounts, onClose, onEdit, onEditMov,
     return d.getMonth()===selectedDate.getMonth() && d.getFullYear()===selectedDate.getFullYear();
   });
 
-  const ingresos = filtered.filter(m => m.tipo==="ingreso").reduce((s,m) => s+m.amount, 0);
-  const gastos   = filtered.filter(m => m.tipo==="gasto").reduce((s,m) => s+m.amount, 0);
+  const ingresos = filtered.filter(m => m.tipo==="ingreso").reduce((s,m) => s+m.amount, 0)
+    + filtered.filter(m => m.tipo==="pagoTarjeta" && m.cardId===acc.id).reduce((s,m) => s+m.amount, 0);
+  const gastos   = filtered.filter(m => m.tipo==="gasto").reduce((s,m) => s+m.amount, 0)
+    + filtered.filter(m => m.tipo==="pagoTarjeta" && m.accountId===acc.id).reduce((s,m) => s+m.amount, 0);
   const balance  = ingresos - gastos;
 
   const byDay = {};
@@ -1798,6 +1797,11 @@ function CuentaDetalle({ acc, movimientos, accounts, onClose, onEdit, onEditMov,
               return s - m.amount;
             }
             if (m.tipo==="ingreso") return s + m.amount;
+            if (m.tipo==="pagoTarjeta") {
+              if (m.cardId===acc.id) return s + m.amount; // viewed from card: debt reduced
+              if (m.accountId===acc.id) return s - m.amount; // viewed from paying account: money out
+              return s;
+            }
             return s;
           }, 0);
           return (
